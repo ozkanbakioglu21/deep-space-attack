@@ -1,0 +1,12 @@
+export const PLAYER_W = 46;
+export const PLAYER_H = 42;
+export const PLAYER_SPEED = 520;
+export const PLAYER_FIRE_RATE = 0.15;
+export const PLAYER_BULLET_SPEED = 680;
+export const ENEMY_BULLET_SPEED = 300;
+export const START_LIVES = 3;
+export const INVINCIBLE_TIME = 1.8;
+export const BASE_SPAWN_INTERVAL = 1.1;
+export const LEVEL_DURATION = 18;
+export const MAX_ENEMIES = 26;
+export const MAX_BULLETS = 140;

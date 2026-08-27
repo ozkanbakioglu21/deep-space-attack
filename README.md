@@ -1,29 +1,39 @@
-# Welcome to your Lovable project
+# Deep Space Attack
 
-This project was built with [Lovable](https://lovable.dev).
+2D mobil uzay savunma oyunu. Dik telefon ekranında oynanır; uzay aracınız ekranın
+altında, düşman uzay araçları yukarıdan iner.
 
-## Build with Lovable
+## Nasıl oynanır
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+- Parmağınızı ekranda sürükleyerek (veya masaüstünde ok tuşları / fare ile) uzay
+  aracınızı hareket ettirin.
+- Aracınız yukarıya otomatik ateş eder.
+- Gelen düşman dalgalarını (drone, avcı, tank) yok etmeden düşman mermilerine
+  çarpmayın ve aracınızı 3 canınızı koruyun.
+- Her 18 saniyede bir seviye atlanır; düşmanlar hızlanır ve çeşitlenir.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+En iyi skor tarayıcınızda (`localStorage`) saklanır.
 
-## Development
+## Geliştirme
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Node.js ve npm gerekir.
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+npm install
 npm run dev
 ```
 
-## Built with
+## Yapı
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+- `src/game/engine.ts` - canvas tabanlı oyun döngüsü, çarpışma ve çizim
+- `src/game/types.ts` - varlık tipleri
+- `src/game/constants.ts` - oyun denge sabitleri
+- `src/game/audio.ts` - Web Audio ile ses efektleri
+- `src/game/storage.ts` - en iyi skor saklama
+- `src/App.tsx` - menü/HUD/oyun sonu arayüzü
+
+## Teknolojiler
+
+- Vite + React 19 + TypeScript
+- HTML5 Canvas 2D
+- Vercel (statik dağıtım)
