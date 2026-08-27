@@ -3,7 +3,15 @@ export interface Vec {
   y: number;
 }
 
-export type EnemyKind = "drone" | "fighter" | "tank";
+export type EnemyKind =
+  | "drone"
+  | "fighter"
+  | "tank"
+  | "spinner"
+  | "kamikaze"
+  | "boss";
+
+export type PowerKind = "shield" | "rapid" | "bomb" | "life";
 
 export interface BaseEntity {
   id: number;
@@ -23,11 +31,20 @@ export interface Enemy extends BaseEntity {
   wobble: number;
   wobbleSpeed: number;
   shootTimer: number;
+  rot: number;
+  rotSpeed: number;
+  flash: number;
+  dive: boolean;
 }
 
 export interface Bullet extends BaseEntity {
   friendly: boolean;
   damage: number;
+}
+
+export interface PowerUp extends BaseEntity {
+  kind: PowerKind;
+  rot: number;
 }
 
 export interface Particle {
@@ -40,6 +57,17 @@ export interface Particle {
   size: number;
   color: string;
   gravity: number;
+}
+
+export interface Popup {
+  x: number;
+  y: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  text: string;
+  color: string;
+  size: number;
 }
 
 export interface Star {
@@ -60,6 +88,7 @@ export interface GameCallbacks {
   onScore: (score: number) => void;
   onLives: (lives: number) => void;
   onLevel: (level: number) => void;
+  onCombo: (multiplier: number) => void;
   onGameOver: (result: GameOverResult) => void;
 }
 

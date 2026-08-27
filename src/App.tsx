@@ -73,6 +73,7 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(START_LIVES);
   const [level, setLevel] = useState(1);
+  const [combo, setCombo] = useState(1);
   const [highScore, setHighScore] = useState(() => loadHighScore());
   const [result, setResult] = useState<GameOverResult | null>(null);
 
@@ -84,6 +85,7 @@ export default function App() {
       onScore: setScore,
       onLives: setLives,
       onLevel: setLevel,
+      onCombo: setCombo,
       onGameOver: (r) => {
         setResult(r);
         setHighScore(r.highScore);
@@ -105,6 +107,7 @@ export default function App() {
     setScore(0);
     setLives(START_LIVES);
     setLevel(1);
+    setCombo(1);
     setPaused(false);
     setResult(null);
     setScreen("playing");
@@ -152,6 +155,7 @@ export default function App() {
               ))}
             </span>
           </div>
+          {combo > 1 && <div className="hud-combo">x{combo}</div>}
           <div className="hud-cell hud-actions">
             <button
               className="hud-btn"
@@ -182,8 +186,10 @@ export default function App() {
           <div className="controls">
             <p className="controls-title">NASIL OYNANIR</p>
             <p>Parmağını sürükle / ok tuşları ile aracını hareket ettir.</p>
-            <p>Aracın otomatik ateş eder. Düşmanların mermilerine çarpma!</p>
-            <p>Gelen dalgaları yok et ve daha yüksek seviyelere ulaş.</p>
+            <p>Aracın otomatik ateş eder. Düşman mermilerine çarpma!</p>
+            <p>Düşmanlardan düşen güçleri topla: Kalkan, hızlı ateş, bomba, ekstra can.</p>
+            <p>Hızlı seri öldürüşler komboyu yükseltir, skor çarpanın artar.</p>
+            <p>Seviye 5'ten itibaren her 5 seviyede bir bölüm patronu gelir.</p>
           </div>
 
           <p className="best">EN İYİ SKOR: {highScore.toLocaleString("tr-TR")}</p>

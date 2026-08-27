@@ -96,6 +96,28 @@ body {
   pointer-events: auto;
 }
 
+.hud-combo {
+  position: absolute;
+  top: max(58px, calc(env(safe-area-inset-top) + 46px));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  font-weight: 900;
+  color: #ffd166;
+  text-shadow: 0 0 16px rgba(255, 209, 102, 0.9);
+  animation: comboPop 0.25s ease-out;
+  pointer-events: none;
+}
+
+@keyframes comboPop {
+  from {
+    transform: translateX(-50%) scale(1.5);
+  }
+  to {
+    transform: translateX(-50%) scale(1);
+  }
+}
+
 .hud-btn,
 .btn {
   border: 1px solid rgba(130, 220, 255, 0.45);

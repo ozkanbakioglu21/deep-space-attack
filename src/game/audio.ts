@@ -64,4 +64,21 @@ export class AudioManager {
     this.beep(880, 0.09, "square", 0.05, 0.09);
     this.beep(1100, 0.14, "square", 0.05, 0.18);
   }
+
+  powerup(): void {
+    this.beep(620, 0.08, "square", 0.05);
+    this.beep(940, 0.09, "square", 0.05, 0.08);
+    this.beep(1250, 0.14, "square", 0.04, 0.16);
+  }
+
+  bomb(): void {
+    this.beep(140, 0.5, "sawtooth", 0.14);
+    this.beep(70, 0.6, "sine", 0.12, 0.05);
+  }
+
+  bossWarn(): void {
+    this.beep(170, 0.3, "sawtooth", 0.07);
+    this.beep(170, 0.3, "sawtooth", 0.07, 0.34);
+    this.beep(240, 0.4, "sawtooth", 0.08, 0.68);
+  }
 }

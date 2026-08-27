@@ -5,8 +5,20 @@ export const PLAYER_FIRE_RATE = 0.15;
 export const PLAYER_BULLET_SPEED = 680;
 export const ENEMY_BULLET_SPEED = 300;
 export const START_LIVES = 3;
+export const MAX_LIVES = 5;
 export const INVINCIBLE_TIME = 1.8;
 export const BASE_SPAWN_INTERVAL = 1.1;
 export const LEVEL_DURATION = 18;
-export const MAX_ENEMIES = 26;
-export const MAX_BULLETS = 140;
+export const MAX_ENEMIES = 30;
+export const MAX_BULLETS = 160;
+export const MAX_POWERUPS = 4;
+
+export const POWERUP_SPEED = 105;
+export const SHIELD_TIME = 7;
+export const RAPID_TIME = 8;
+export const COMBO_WINDOW = 2.2;
+
+export const BOSS_INTERVAL = 5;
+export const BOSS_BASE_HP = 40;
+export const BOSS_HP_PER_LEVEL = 9;
+export const BOSS_BAR_H = 8;

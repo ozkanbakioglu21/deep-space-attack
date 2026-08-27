@@ -8,8 +8,11 @@ altında, düşman uzay araçları yukarıdan iner.
 - Parmağınızı ekranda sürükleyerek (veya masaüstünde ok tuşları / fare ile) uzay
   aracınızı hareket ettirin.
 - Aracınız yukarıya otomatik ateş eder.
-- Gelen düşman dalgalarını (drone, avcı, tank) yok etmeden düşman mermilerine
-  çarpmayın ve aracınızı 3 canınızı koruyun.
+- Gelen düşman dalgalarını (drone, avcı, tank, döner, kamikaze) ve seviye 5'ten
+  itibaren her 5 seviyede bir gelen bölüm patronlarını yok edin; düşman mermilerine
+  ve çarpışmalara dikkat edin.
+- Düşmanlardan düşen güçleri toplayın: Kalkan, hızlı ateş, bomba ve ekstra can.
+- Hızlı seri imhalar komboyu yükseltir ve skor çarpanınızı artırır.
 - Her 18 saniyede bir seviye atlanır; düşmanlar hızlanır ve çeşitlenir.
 
 En iyi skor tarayıcınızda (`localStorage`) saklanır.
@@ -25,7 +28,9 @@ npm run dev
 
 ## Yapı
 
-- `src/game/engine.ts` - canvas tabanlı oyun döngüsü, çarpışma ve çizim
+- `src/game/engine.ts` - canvas tabanlı oyun döngüsü, çarpışma ve oyun mantığı
+- `src/game/painter.ts` - tüm canvas çizimleri (düşmanlar, güçler, efektler)
+- `src/game/defs.ts` - düşman ve güç tanımları
 - `src/game/types.ts` - varlık tipleri
 - `src/game/constants.ts` - oyun denge sabitleri
 - `src/game/audio.ts` - Web Audio ile ses efektleri
