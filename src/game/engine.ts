@@ -1,6 +1,6 @@
 import { AudioManager } from "./audio";
 import { loadHighScore, saveHighScore } from "./storage";
-import { ENEMY_DEFS, POWERUP_INFO } from "./defs";
+import { CHAPTERS, ENEMY_DEFS, POWERUP_INFO } from "./defs";
 import {
   BASE_SPAWN_INTERVAL,
   COMBO_WINDOW,
@@ -62,7 +62,8 @@ type LevelEventKind =
   | "fighterWing"
   | "spinnerFan"
   | "kamikazeSweep"
-  | "tankSiege";
+  | "tankSiege"
+  | "meteorShower";
 
 interface LevelEvent {
   kind: LevelEventKind;
@@ -143,7 +144,9 @@ export class Game {
 
   private banner: string | null = null;
   private bannerTimer = 0;
+  private bannerSub: string | null = null;
   private events: LevelEvent[] = [];
+  private chapter = 0;
 
   constructor(canvas: HTMLCanvasElement, callbacks: GameCallbacks) {
     this.canvas = canvas;
@@ -195,8 +198,10 @@ export class Game {
     this.cbs.onLives(this.lives);
     this.cbs.onLevel(this.level);
     this.cbs.onCombo(1);
+    this.chapter = this.chapterFor(this.level);
+    this.initStars();
     this.events = this.buildLevelEvents(this.level);
-    this.setBanner(`SEVİYE ${this.level}`);
+    this.setBanner(`BÖLÜM ${this.chapter + 1}`, CHAPTERS[this.chapter].name);
   }
 
   setPaused(paused: boolean): void {
@@ -226,6 +231,7 @@ export class Game {
     this.player.rapid = 0;
     this.events = [];
     this.banner = null;
+    this.bannerSub = null;
   }
 
   destroy(): void {
@@ -260,13 +266,18 @@ export class Game {
 
   private initStars(): void {
     const count = clamp(Math.floor((this.W * this.H) / 3600), 40, 150);
+    const speedBase = 24 + this.chapter * 14;
     this.stars = Array.from({ length: count }, () => ({
       x: Math.random() * this.W,
       y: Math.random() * this.H,
       size: Math.random() * 1.6 + 0.4,
-      speed: 24 + Math.random() * 70,
+      speed: speedBase + Math.random() * 70,
       twinkle: Math.random() * Math.PI * 2,
     }));
+  }
+
+  private chapterFor(level: number): number {
+    return Math.floor((level - 1) / 5) % CHAPTERS.length;
   }
 
   private bindInput(): void {
@@ -341,7 +352,10 @@ export class Game {
     this.flash = Math.max(0, this.flash - dt * 2.2);
     if (this.banner) {
       this.bannerTimer -= dt;
-      if (this.bannerTimer <= 0) this.banner = null;
+      if (this.bannerTimer <= 0) {
+        this.banner = null;
+        this.bannerSub = null;
+      }
     }
   }
 
@@ -355,8 +369,9 @@ export class Game {
     }
   }
 
-  private setBanner(text: string): void {
+  private setBanner(text: string, sub: string | null = null): void {
     this.banner = text;
+    this.bannerSub = sub;
     this.bannerTimer = 2.2;
   }
 
@@ -380,7 +395,17 @@ export class Game {
         );
       }
       this.events = this.buildLevelEvents(this.level);
-      this.setBanner(`SEVİYE ${this.level}`);
+      const newChapter = this.chapterFor(next);
+      if (newChapter !== this.chapter) {
+        this.chapter = newChapter;
+        this.initStars();
+        this.audio.chapter();
+        this.flash = Math.max(this.flash, 0.6);
+        this.shake = 12;
+        this.setBanner(`BÖLÜM ${this.chapter + 1}`, CHAPTERS[this.chapter].name);
+      } else {
+        this.setBanner(`SEVİYE ${this.level}`);
+      }
     }
   }
 
@@ -407,6 +432,7 @@ export class Game {
     if (level >= 3) pool.push("spinnerFan");
     if (level >= 4) pool.push("kamikazeSweep");
     if (level >= 5) pool.push("tankSiege");
+    if (this.chapterFor(level) >= 2) pool.push("meteorShower");
     return pool;
   }
 
@@ -436,6 +462,9 @@ export class Game {
         break;
       case "tankSiege":
         this.spawnTankSiege();
+        break;
+      case "meteorShower":
+        this.spawnMeteorShower();
         break;
     }
   }
@@ -480,6 +509,15 @@ export class Game {
     for (let i = 0; i < 3; i++) {
       const x = (this.W * (i + 0.5)) / 3 + (Math.random() - 0.5) * 8;
       this.pushEnemy("tank", x, -ENEMY_DEFS.tank.h - 20 - i * 34);
+    }
+  }
+
+  private spawnMeteorShower(): void {
+    const count = 7 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+      const x = (this.W * (i + 0.5)) / count + (Math.random() - 0.5) * 20;
+      const y = -60 - i * 26;
+      this.pushEnemy("meteor", x, y);
     }
   }
 
@@ -956,7 +994,10 @@ export class Game {
     const tw = Math.min(0.22, 0.02 + lvl * 0.02);
     const sw = lvl >= 3 ? Math.min(0.22, 0.05 + lvl * 0.02) : 0;
     const kw = lvl >= 4 ? Math.min(0.24, 0.04 + lvl * 0.02) : 0;
+    const mw = this.chapterFor(lvl) >= 2 ? Math.min(0.2, 0.08 + lvl * 0.008) : 0;
     let roll = Math.random();
+    if (roll < mw) return "meteor";
+    roll -= mw;
     if (roll < tw) return "tank";
     roll -= tw;
     if (roll < fw) return "fighter";
@@ -1091,7 +1132,7 @@ export class Game {
     const { W, H, shake } = this;
 
     ctx.save();
-    paintBackground(ctx, W, H, this.time, this.stars);
+    paintBackground(ctx, W, H, this.time, this.stars, CHAPTERS[this.chapter]);
 
     ctx.save();
     if (shake > 0) {
@@ -1112,7 +1153,7 @@ export class Game {
       ctx.fillStyle = `rgba(255,255,255,${(this.flash * 0.35).toFixed(3)})`;
       ctx.fillRect(0, 0, W, H);
     }
-    if (this.banner) paintBanner(ctx, W, H, this.banner, this.bannerTimer);
+    if (this.banner) paintBanner(ctx, W, H, this.banner, this.bannerTimer, this.bannerSub);
     ctx.restore();
   }
 }

@@ -1,11 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { Game } from "./game/engine";
+import type { CSSProperties } from "react";
+import { MODES, createMode } from "./game/modes";
+import type { GameAdapter, ModeId, ModeMeta } from "./game/modes/types";
 import { START_LIVES } from "./game/constants";
-import { loadHighScore } from "./game/storage";
+import { loadHighScore, loadModeScore } from "./game/storage";
 import type { GameOverResult } from "./game/types";
 
 type Screen = "menu" | "playing" | "gameover";
 type ScreenState = Screen | "paused";
+
+const MODE_IDS: ModeId[] = MODES.map((m) => m.id);
+type BestScores = Record<ModeId, number>;
+
+function initialBests(): BestScores {
+  const out = {} as BestScores;
+  for (const id of MODE_IDS) {
+    out[id] = id === "flow" ? loadHighScore() : loadModeScore(id);
+  }
+  return out;
+}
 
 const HEART_EMPTY = "♡";
 const HEART_FULL = "♥";
@@ -62,33 +75,41 @@ function SoundIcon({ muted }: { muted: boolean }) {
   );
 }
 
+function ModeIcon({ id }: { id: ModeId }) {
+  const glyph =
+    id === "flow" ? "➤" : id === "storm" ? "✧" : id === "gather" ? "✦" : "◎";
+  return <span className="mode-icon" aria-hidden="true">{glyph}</span>;
+}
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const gameRef = useRef<Game | null>(null);
+  const gameRef = useRef<GameAdapter | null>(null);
+  const modeRef = useRef<ModeId>("flow");
 
   const [screen, setScreen] = useState<Screen>("menu");
   const [subscreen, setSubscreen] = useState<ScreenState>("menu");
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [modeId, setModeId] = useState<ModeId>("flow");
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(START_LIVES);
   const [level, setLevel] = useState(1);
   const [combo, setCombo] = useState(1);
-  const [highScore, setHighScore] = useState(() => loadHighScore());
+  const [best, setBest] = useState<BestScores>(initialBests);
   const [result, setResult] = useState<GameOverResult | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const game = new Game(canvas, {
+    const game = createMode(canvas, "flow", {
       onScore: setScore,
       onLives: setLives,
       onLevel: setLevel,
       onCombo: setCombo,
       onGameOver: (r) => {
         setResult(r);
-        setHighScore(r.highScore);
+        setBest((prev) => ({ ...prev, [modeRef.current]: r.highScore }));
         setScreen("gameover");
         setSubscreen("gameover");
       },
@@ -102,8 +123,37 @@ export default function App() {
     };
   }, []);
 
-  const startGame = () => {
-    gameRef.current?.beginGame();
+  const ensureGame = (id: ModeId): GameAdapter | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const current = gameRef.current;
+    if (current && modeRef.current === id) return current;
+
+    current?.destroy();
+    const next = createMode(canvas, id, {
+      onScore: setScore,
+      onLives: setLives,
+      onLevel: setLevel,
+      onCombo: setCombo,
+      onGameOver: (r) => {
+        setResult(r);
+        setBest((prev) => ({ ...prev, [modeRef.current]: r.highScore }));
+        setScreen("gameover");
+        setSubscreen("gameover");
+      },
+    });
+    gameRef.current = next;
+    modeRef.current = id;
+    next.setMuted(muted);
+    next.launch();
+    return next;
+  };
+
+  const startGame = (id: ModeId) => {
+    const game = ensureGame(id);
+    if (!game) return;
+    game.beginGame();
+    setModeId(id);
     setScore(0);
     setLives(START_LIVES);
     setLevel(1);
@@ -135,6 +185,8 @@ export default function App() {
     });
   };
 
+  const hud = MODES.find((m) => m.id === modeId) ?? MODES[0];
+
   return (
     <div className="app">
       <canvas ref={canvasRef} className="stage" />
@@ -142,11 +194,15 @@ export default function App() {
       {screen === "playing" && !paused && (
         <header className="hud">
           <div className="hud-cell hud-score">
-            <span className="hud-label">Skor</span>
+            <span className="hud-label">{hud.hud.scoreLabel}</span>
             <span className="hud-value">{score.toLocaleString("tr-TR")}</span>
           </div>
           <div className="hud-cell hud-lives">
-            <span className="hud-label">Seviye {level}</span>
+            {hud.hud.showLevel && (
+              <span className="hud-label">
+                {hud.hud.levelLabel} {level}
+              </span>
+            )}
             <span className="hud-hearts">
               {Array.from({ length: START_LIVES }).map((_, i) => (
                 <span key={i} className={i < lives ? "on" : "off"}>
@@ -155,7 +211,7 @@ export default function App() {
               ))}
             </span>
           </div>
-          {combo > 1 && <div className="hud-combo">x{combo}</div>}
+          {hud.hud.showCombo && combo > 1 && <div className="hud-combo">x{combo}</div>}
           <div className="hud-cell hud-actions">
             <button
               className="hud-btn"
@@ -174,31 +230,44 @@ export default function App() {
       {subscreen === "menu" && (
         <div className="overlay menu">
           <div className="title-wrap">
-            <h1 className="title">DEEP SPACE</h1>
-            <h1 className="title alt">ATTACK</h1>
+            <h1 className="title">UZAY</h1>
+            <h1 className="title alt">ARCADE</h1>
           </div>
-          <p className="tagline">Uzay savar, gezegenleri koru!</p>
+          <p className="tagline">Dört oyun, tek ekran. Birini seç ve başla!</p>
 
-          <button className="btn primary" onClick={startGame}>
-            BAŞLAT
-          </button>
-
-          <div className="controls">
-            <p className="controls-title">NASIL OYNANIR</p>
-            <p>Parmağını sürükle / ok tuşları ile aracını hareket ettir.</p>
-            <p>Aracın otomatik ateş eder. Düşman mermilerine çarpma!</p>
-            <p>Düşmanlardan düşen güçleri topla: Kalkan, hızlı ateş, bomba, ekstra can.</p>
-            <p>Hızlı seri öldürüşler komboyu yükseltir, skor çarpanın artar.</p>
-            <p>Dalgalar seviye ilerledikçe hızlanır ve çeşitlenir.</p>
+          <div className="mode-grid">
+            {MODES.map((m: ModeMeta) => (
+              <button
+                key={m.id}
+                className="mode-card"
+                style={{ "--accent": m.accent } as CSSProperties}
+                onClick={() => startGame(m.id)}
+              >
+                <span className="mode-head">
+                  <ModeIcon id={m.id} />
+                  <span className="mode-name">{m.name}</span>
+                </span>
+                <span className="mode-desc">{m.tagline}</span>
+                <span className="mode-best">
+                  EN İYİ: {best[m.id].toLocaleString("tr-TR")}
+                </span>
+              </button>
+            ))}
           </div>
 
-          <p className="best">EN İYİ SKOR: {highScore.toLocaleString("tr-TR")}</p>
+          <p className="best">Geçerli modun en iyi skoru anında saklanır.</p>
         </div>
       )}
 
       {paused && screen === "playing" && (
         <div className="overlay pause">
-          <h2 className="overlay-title">DURAKLATILDI</h2>
+          <h2 className="overlay-title">{hud.name}</h2>
+          <div className="controls">
+            <p className="controls-title">NASIL OYNANIR</p>
+            {hud.controls.map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+          </div>
           <div className="btn-group">
             <button className="btn primary" onClick={togglePause}>
               DEVAM ET
@@ -213,6 +282,7 @@ export default function App() {
       {subscreen === "gameover" && result && (
         <div className="overlay gameover">
           <h2 className="overlay-title danger">OYUN BİTTİ</h2>
+          <p className="mode-name-over">{hud.name}</p>
           {result.isRecord && <p className="record">YENİ REKOR!</p>}
           <div className="result-row">
             <span>Skor</span>
@@ -223,7 +293,7 @@ export default function App() {
             <strong>{result.highScore.toLocaleString("tr-TR")}</strong>
           </div>
           <div className="btn-group">
-            <button className="btn primary" onClick={startGame}>
+            <button className="btn primary" onClick={() => startGame(modeRef.current)}>
               TEKRAR OYNA
             </button>
             <button className="btn ghost" onClick={goToMenu}>

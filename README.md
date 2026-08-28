@@ -12,7 +12,9 @@ altında, düşman uzay araçları yukarıdan iner.
   mermilerine ve çarpışmalara dikkat edin.
 - Düşmanlardan düşen güçleri toplayın: Kalkan, hızlı ateş, bomba ve ekstra can.
 - Her seviyede sürpriz hücum düzenleri bekler: drone spiralleri, avcı kolları,
-  döner fanları, kamikaze saldırıları ve tank kuşatmaları.
+  döner fanları, kamikaze saldırıları, tank kuşatmaları ve meteor yağmurları.
+- Her 5 seviyede bir yeni bölüm başlar: Derin Uzay, Nebula, Asteroit Kuşağı,
+  Hiper Uzay ve Kara Delik; her bölümün kendi arka planı, yıldız alanı ve hızı vardır.
 - Hızlı seri imhalar komboyu yükseltir ve skor çarpanınızı artırır.
 - Her 18 saniyede bir seviye atlanır; seviyeyi temizlediğiniz için bonus skor,
   düşmanlar hızlanır ve çeşitlenir.

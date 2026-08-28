@@ -1,4 +1,4 @@
-import type { EnemyDef, EnemyKind, PowerKind } from "./types";
+import type { ChapterDef, EnemyDef, EnemyKind, PowerKind } from "./types";
 
 export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
   drone: {
@@ -51,6 +51,16 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
     shoot: false,
     shootEvery: 0,
   },
+  meteor: {
+    w: 44,
+    h: 44,
+    hp: 2,
+    speed: 105,
+    score: 170,
+    color: "#e08a4a",
+    shoot: false,
+    shootEvery: 0,
+  },
 };
 
 export const POWERUP_INFO: Record<PowerKind, { color: string; label: string }> = {
@@ -59,3 +69,80 @@ export const POWERUP_INFO: Record<PowerKind, { color: string; label: string }> =
   bomb: { color: "#ff9f43", label: "BOMBA" },
   life: { color: "#ff5d8f", label: "+1 CAN" },
 };
+
+export const CHAPTERS: ChapterDef[] = [
+  {
+    name: "DERİN UZAY",
+    top: "#0c1233",
+    mid: "#070a1c",
+    bottom: "#04040c",
+    star: "#cfe8ff",
+    starSpeed: 1,
+    nebulas: [
+      { x: 0.2, y: 0.18, r: 0.55, color: "rgba(88,44,255,0.10)" },
+      { x: 0.85, y: 0.5, r: 0.5, color: "rgba(255,60,160,0.07)" },
+      { x: 0.3, y: 0.82, r: 0.5, color: "rgba(0,200,255,0.06)" },
+    ],
+    rocks: 0,
+    rockColor: "#000000",
+    rockSpeed: 0,
+  },
+  {
+    name: "NEBULA",
+    top: "#25113f",
+    mid: "#130824",
+    bottom: "#07030d",
+    star: "#ffd7f0",
+    starSpeed: 1.3,
+    nebulas: [
+      { x: 0.5, y: 0.25, r: 0.72, color: "rgba(255,80,200,0.12)" },
+      { x: 0.15, y: 0.65, r: 0.6, color: "rgba(120,60,255,0.10)" },
+      { x: 0.8, y: 0.85, r: 0.55, color: "rgba(60,220,255,0.07)" },
+    ],
+    rocks: 0,
+    rockColor: "#000000",
+    rockSpeed: 0,
+  },
+  {
+    name: "ASTEROİT KUŞAĞI",
+    top: "#2b1a07",
+    mid: "#180e03",
+    bottom: "#080501",
+    star: "#ffe3b3",
+    starSpeed: 1.7,
+    nebulas: [{ x: 0.25, y: 0.7, r: 0.6, color: "rgba(255,140,60,0.08)" }],
+    rocks: 7,
+    rockColor: "#8a5c32",
+    rockSpeed: 80,
+  },
+  {
+    name: "HİPER UZAY",
+    top: "#0b1f2e",
+    mid: "#05111a",
+    bottom: "#02050b",
+    star: "#a9f2ff",
+    starSpeed: 2.2,
+    nebulas: [
+      { x: 0.5, y: 0.5, r: 0.9, color: "rgba(40,220,255,0.08)" },
+      { x: 0.15, y: 0.3, r: 0.5, color: "rgba(255,60,120,0.10)" },
+    ],
+    rocks: 0,
+    rockColor: "#000000",
+    rockSpeed: 0,
+  },
+  {
+    name: "KARA DELİK",
+    top: "#2c0a10",
+    mid: "#150407",
+    bottom: "#020204",
+    star: "#ffd7d7",
+    starSpeed: 2.7,
+    nebulas: [
+      { x: 0.5, y: 0.35, r: 0.75, color: "rgba(255,40,40,0.10)" },
+      { x: 0.8, y: 0.8, r: 0.5, color: "rgba(220,220,255,0.06)" },
+    ],
+    rocks: 0,
+    rockColor: "#000000",
+    rockSpeed: 0,
+  },
+];

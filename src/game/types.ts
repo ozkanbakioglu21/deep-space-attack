@@ -3,7 +3,7 @@ export interface Vec {
   y: number;
 }
 
-export type EnemyKind = "drone" | "fighter" | "tank" | "spinner" | "kamikaze";
+export type EnemyKind = "drone" | "fighter" | "tank" | "spinner" | "kamikaze" | "meteor";
 
 export type PowerKind = "shield" | "rapid" | "bomb" | "life";
 
@@ -72,6 +72,17 @@ export interface Star {
   twinkle: number;
 }
 
+export interface Glint {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rot: number;
+  life: number;
+  maxLife: number;
+  alive: boolean;
+}
+
 export interface GameOverResult {
   score: number;
   highScore: number;
@@ -95,4 +106,24 @@ export interface EnemyDef {
   color: string;
   shoot: boolean;
   shootEvery: number;
+}
+
+export interface NebulaDef {
+  x: number;
+  y: number;
+  r: number;
+  color: string;
+}
+
+export interface ChapterDef {
+  name: string;
+  top: string;
+  mid: string;
+  bottom: string;
+  star: string;
+  starSpeed: number;
+  nebulas: NebulaDef[];
+  rocks: number;
+  rockColor: string;
+  rockSpeed: number;
 }

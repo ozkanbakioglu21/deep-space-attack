@@ -161,6 +161,11 @@ body {
 
 .menu {
   background: rgba(3, 5, 15, 0.35);
+  overflow-y: auto;
+  justify-content: flex-start;
+  padding-top: max(40px, env(safe-area-inset-top));
+  padding-bottom: 24px;
+  gap: 8px;
 }
 
 .title-wrap {
@@ -190,6 +195,84 @@ body {
   color: rgba(210, 235, 255, 0.8);
   font-size: 15px;
   margin-bottom: 26px;
+}
+
+/* ---------- Mode picker ---------- */
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: min(420px, 84vw);
+  margin-bottom: 20px;
+}
+
+.mode-card {
+  --accent: #8df0ff;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  text-align: left;
+  padding: 14px 14px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 16px;
+  background: rgba(8, 14, 32, 0.6);
+  color: #dffcff;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mode-card:active {
+  transform: scale(0.96);
+}
+
+.mode-card:hover,
+.mode-card:focus-visible {
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent);
+  background: rgba(12, 20, 44, 0.75);
+  outline: none;
+}
+
+.mode-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mode-icon {
+  color: var(--accent);
+  font-size: 18px;
+  text-shadow: 0 0 10px var(--accent);
+}
+
+.mode-name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--accent);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.mode-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(215, 238, 255, 0.75);
+  min-height: 52px;
+}
+
+.mode-best {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: rgba(210, 235, 255, 0.5);
+}
+
+.mode-name-over {
+  color: var(--neon, #8df0ff);
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 16px;
 }
 
 .btn.primary {

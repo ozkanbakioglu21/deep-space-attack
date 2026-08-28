@@ -65,6 +65,13 @@ export class AudioManager {
     this.beep(1100, 0.14, "square", 0.05, 0.18);
   }
 
+  chapter(): void {
+    this.beep(330, 0.14, "sawtooth", 0.07);
+    this.beep(262, 0.14, "sawtooth", 0.07, 0.14);
+    this.beep(196, 0.3, "sawtooth", 0.09, 0.28);
+    this.beep(392, 0.24, "square", 0.05, 0.56);
+  }
+
   powerup(): void {
     this.beep(620, 0.08, "square", 0.05);
     this.beep(940, 0.09, "square", 0.05, 0.08);
