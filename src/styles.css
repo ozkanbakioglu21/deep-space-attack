@@ -173,7 +173,7 @@ body {
 }
 
 .title {
-  font-size: clamp(38px, 11vw, 60px);
+  font-size: clamp(30px, 9vw, 52px);
   font-weight: 900;
   letter-spacing: 4px;
   line-height: 0.95;

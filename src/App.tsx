@@ -230,8 +230,8 @@ export default function App() {
       {subscreen === "menu" && (
         <div className="overlay menu">
           <div className="title-wrap">
-            <h1 className="title">UZAY</h1>
-            <h1 className="title alt">ARCADE</h1>
+            <h1 className="title">DEEP SPACE</h1>
+            <h1 className="title alt">ATTACK</h1>
           </div>
           <p className="tagline">Dört oyun, tek ekran. Birini seç ve başla!</p>
 
