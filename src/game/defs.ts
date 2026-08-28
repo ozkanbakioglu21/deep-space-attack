@@ -51,16 +51,6 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
     shoot: false,
     shootEvery: 0,
   },
-  boss: {
-    w: 132,
-    h: 96,
-    hp: 0,
-    speed: 0,
-    score: 0,
-    color: "#ff5470",
-    shoot: true,
-    shootEvery: 1.3,
-  },
 };
 
 export const POWERUP_INFO: Record<PowerKind, { color: string; label: string }> = {

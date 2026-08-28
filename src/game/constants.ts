@@ -17,8 +17,3 @@ export const POWERUP_SPEED = 105;
 export const SHIELD_TIME = 7;
 export const RAPID_TIME = 8;
 export const COMBO_WINDOW = 2.2;
-
-export const BOSS_INTERVAL = 5;
-export const BOSS_BASE_HP = 40;
-export const BOSS_HP_PER_LEVEL = 9;
-export const BOSS_BAR_H = 8;

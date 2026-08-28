@@ -75,10 +75,4 @@ export class AudioManager {
     this.beep(140, 0.5, "sawtooth", 0.14);
     this.beep(70, 0.6, "sine", 0.12, 0.05);
   }
-
-  bossWarn(): void {
-    this.beep(170, 0.3, "sawtooth", 0.07);
-    this.beep(170, 0.3, "sawtooth", 0.07, 0.34);
-    this.beep(240, 0.4, "sawtooth", 0.08, 0.68);
-  }
 }

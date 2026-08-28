@@ -1,4 +1,3 @@
-import { BOSS_BAR_H } from "./constants";
 import { ENEMY_DEFS, POWERUP_INFO } from "./defs";
 import type {
   Bullet,
@@ -12,23 +11,6 @@ import type { PlayerState } from "./engine";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function roundRectPath(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
 }
 
 export function paintBackground(
@@ -309,32 +291,6 @@ export function paintEnemy(
     ctx.lineTo(4, def.h / 2);
     ctx.closePath();
     ctx.fill();
-  } else {
-    ctx.save();
-    ctx.rotate(enemy.rot * 0.4);
-    ctx.fillStyle = "#2a0610";
-    ctx.strokeStyle = def.color;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(0, -def.h / 2);
-    ctx.lineTo(def.w / 2, -def.h * 0.15);
-    ctx.lineTo(def.w * 0.4, def.h * 0.35);
-    ctx.lineTo(0, def.h / 2);
-    ctx.lineTo(-def.w * 0.4, def.h * 0.35);
-    ctx.lineTo(-def.w / 2, -def.h * 0.15);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = def.color;
-    ctx.beginPath();
-    ctx.arc(0, 0, 14, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#2a0610";
-    ctx.beginPath();
-    ctx.arc(0, 0, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(-def.w * 0.3, -def.h * 0.42, def.w * 0.6, 4);
-    ctx.fillRect(-def.w * 0.22, -def.h * 0.38, def.w * 0.44, 3);
   }
 
   if (flashing) {
@@ -450,39 +406,6 @@ export function paintPopups(
     ctx.fillText(popup.text, popup.x, popup.y);
   }
   ctx.globalAlpha = 1;
-}
-
-export function paintBossBar(
-  ctx: CanvasRenderingContext2D,
-  W: number,
-  boss: Enemy,
-  bossMaxHp: number,
-): void {
-  const width = Math.min(300, W * 0.72);
-  const x = (W - width) / 2;
-  const y = 58;
-  const ratio = clamp(boss.hp / bossMaxHp, 0, 1);
-
-  ctx.fillStyle = "rgba(0,0,0,0.55)";
-  roundRectPath(ctx, x - 2, y - 2, width + 4, BOSS_BAR_H + 4, 6);
-  ctx.fill();
-
-  ctx.fillStyle = "rgba(255,255,255,0.12)";
-  roundRectPath(ctx, x, y, width, BOSS_BAR_H, 4);
-  ctx.fill();
-
-  const bar = ctx.createLinearGradient(x, 0, x + width, 0);
-  bar.addColorStop(0, "#ff5470");
-  bar.addColorStop(1, "#ffd166");
-  ctx.fillStyle = bar;
-  roundRectPath(ctx, x, y, Math.max(6, width * ratio), BOSS_BAR_H, 4);
-  ctx.fill();
-
-  ctx.font = "800 11px 'Segoe UI', system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffe3e9";
-  ctx.fillText("PATRON", W / 2, y + BOSS_BAR_H + 11);
 }
 
 export function paintBanner(

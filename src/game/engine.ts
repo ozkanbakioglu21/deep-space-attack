@@ -3,9 +3,6 @@ import { loadHighScore, saveHighScore } from "./storage";
 import { ENEMY_DEFS, POWERUP_INFO } from "./defs";
 import {
   BASE_SPAWN_INTERVAL,
-  BOSS_BASE_HP,
-  BOSS_HP_PER_LEVEL,
-  BOSS_INTERVAL,
   COMBO_WINDOW,
   ENEMY_BULLET_SPEED,
   INVINCIBLE_TIME,
@@ -27,7 +24,6 @@ import {
 import {
   paintBackground,
   paintBanner,
-  paintBossBar,
   paintBullet,
   paintEnemy,
   paintParticles,
@@ -59,6 +55,18 @@ export interface PlayerState {
   fireCooldown: number;
   shield: number;
   rapid: number;
+}
+
+type LevelEventKind =
+  | "droneSpiral"
+  | "fighterWing"
+  | "spinnerFan"
+  | "kamikazeSweep"
+  | "tankSiege";
+
+interface LevelEvent {
+  kind: LevelEventKind;
+  time: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -133,11 +141,9 @@ export class Game {
   private comboTimer = 0;
   private lastMult = 1;
 
-  private bossActive = false;
-  private bossMaxHp = 0;
-  private bossPattern = 0;
   private banner: string | null = null;
   private bannerTimer = 0;
+  private events: LevelEvent[] = [];
 
   constructor(canvas: HTMLCanvasElement, callbacks: GameCallbacks) {
     this.canvas = canvas;
@@ -173,8 +179,6 @@ export class Game {
     this.combo = 0;
     this.comboTimer = 0;
     this.lastMult = 1;
-    this.bossActive = false;
-    this.bossPattern = 0;
     this.banner = null;
     this.playing = true;
     this.paused = false;
@@ -191,6 +195,7 @@ export class Game {
     this.cbs.onLives(this.lives);
     this.cbs.onLevel(this.level);
     this.cbs.onCombo(1);
+    this.events = this.buildLevelEvents(this.level);
     this.setBanner(`SEVİYE ${this.level}`);
   }
 
@@ -219,7 +224,7 @@ export class Game {
     this.player.invincible = 0;
     this.player.shield = 0;
     this.player.rapid = 0;
-    this.bossActive = false;
+    this.events = [];
     this.banner = null;
   }
 
@@ -324,6 +329,7 @@ export class Game {
     this.time += dt;
     this.updateStars(dt);
     this.advanceLevel();
+    this.updateEvents();
     this.updatePlayer(dt);
     this.updateBullets(dt);
     this.updateEnemies(dt);
@@ -361,39 +367,120 @@ export class Game {
       this.level = next;
       this.cbs.onLevel(this.level);
       this.audio.levelUp();
+      const bonus = this.level * 100;
+      this.score += bonus;
+      this.cbs.onScore(this.score);
+      if (this.player.alive) {
+        this.addPopup(
+          this.player.x,
+          this.player.y - 44,
+          `SEVİYE TEMİZ +${bonus}`,
+          "#8df0ff",
+          15,
+        );
+      }
+      this.events = this.buildLevelEvents(this.level);
       this.setBanner(`SEVİYE ${this.level}`);
-      if (this.level % BOSS_INTERVAL === 0) this.spawnBoss();
     }
   }
 
-  private spawnBoss(): void {
-    this.bossActive = true;
-    this.bossMaxHp = BOSS_BASE_HP + this.level * BOSS_HP_PER_LEVEL;
-    this.bossPattern = 0;
-    const half = this.W / 2;
-    this.enemies.push({
-      id: this.nextId++,
-      kind: "boss",
-      x: half,
-      y: 92,
-      w: ENEMY_DEFS.boss.w,
-      h: ENEMY_DEFS.boss.h,
-      vx: 0,
-      vy: 0,
-      alive: true,
-      hp: this.bossMaxHp,
-      baseX: half,
-      wobble: 0,
-      wobbleSpeed: 0,
-      shootTimer: 1.6,
-      rot: 0,
-      rotSpeed: 0.5,
-      flash: 0,
-      dive: false,
-    });
-    this.audio.bossWarn();
-    this.setBanner("BÖLÜM PATRONU");
-    this.shake = Math.min(16, this.shake + 7);
+  private levelWindow(): number {
+    return this.time - (this.level - 1) * LEVEL_DURATION;
+  }
+
+  private buildLevelEvents(level: number): LevelEvent[] {
+    const pool = this.eventPool(level);
+    const count = level === 1 ? 1 : level === 2 ? 2 : 3;
+    const events: LevelEvent[] = [];
+    const slot = (LEVEL_DURATION - 3) / Math.max(count, 1);
+    for (let i = 0; i < count; i++) {
+      const kind = pool[Math.floor(Math.random() * pool.length)];
+      const time = Math.min(1.5 + i * slot + Math.random() * slot * 0.6, LEVEL_DURATION - 1.2);
+      events.push({ kind, time });
+    }
+    return events;
+  }
+
+  private eventPool(level: number): LevelEventKind[] {
+    const pool: LevelEventKind[] =
+      level === 1 ? ["droneSpiral"] : ["droneSpiral", "fighterWing"];
+    if (level >= 3) pool.push("spinnerFan");
+    if (level >= 4) pool.push("kamikazeSweep");
+    if (level >= 5) pool.push("tankSiege");
+    return pool;
+  }
+
+  private updateEvents(): void {
+    if (!this.playing) return;
+    const window = this.levelWindow();
+    const due = this.events.filter((e) => window >= e.time);
+    if (due.length === 0) return;
+    this.events = this.events.filter((e) => window < e.time);
+    if (this.enemies.length >= MAX_ENEMIES) return;
+    for (const ev of due) this.spawnEvent(ev.kind);
+  }
+
+  private spawnEvent(kind: LevelEventKind): void {
+    switch (kind) {
+      case "droneSpiral":
+        this.spawnDroneSpiral();
+        break;
+      case "fighterWing":
+        this.spawnFighterWing();
+        break;
+      case "spinnerFan":
+        this.spawnSpinnerFan();
+        break;
+      case "kamikazeSweep":
+        this.spawnKamikazeSweep();
+        break;
+      case "tankSiege":
+        this.spawnTankSiege();
+        break;
+    }
+  }
+
+  private spawnDroneSpiral(): void {
+    const count = 8 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < count; i++) {
+      const t = i / (count - 1);
+      const x = ENEMY_DEFS.drone.w / 2 + t * (this.W - ENEMY_DEFS.drone.w);
+      const y = -50 - Math.sin(t * Math.PI * 2) * 44;
+      this.pushEnemy("drone", x, y);
+    }
+  }
+
+  private spawnFighterWing(): void {
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const x = this.W / 2 + side * (26 + i * 34);
+        const y = -26 - i * 30;
+        this.pushEnemy("fighter", x, y);
+      }
+    }
+  }
+
+  private spawnSpinnerFan(): void {
+    for (let i = 0; i < 4; i++) {
+      const x = (this.W * (i + 0.5)) / 4;
+      this.pushEnemy("spinner", x, -ENEMY_DEFS.spinner.h - 10);
+    }
+  }
+
+  private spawnKamikazeSweep(): void {
+    const count = 5;
+    for (let i = 0; i < count; i++) {
+      const x = (this.W * (i + 0.5)) / count + (Math.random() - 0.5) * 16;
+      const y = -40 - i * 20;
+      this.pushEnemy("kamikaze", x, y);
+    }
+  }
+
+  private spawnTankSiege(): void {
+    for (let i = 0; i < 3; i++) {
+      const x = (this.W * (i + 0.5)) / 3 + (Math.random() - 0.5) * 8;
+      this.pushEnemy("tank", x, -ENEMY_DEFS.tank.h - 20 - i * 34);
+    }
   }
 
   private updatePlayer(dt: number): void {
@@ -539,11 +626,7 @@ export class Game {
     enemy.flash = 0.1;
     if (enemy.hp <= 0) {
       enemy.alive = false;
-      if (enemy.kind === "boss") {
-        this.killBoss(enemy);
-      } else {
-        this.killEnemy(enemy, def);
-      }
+      this.killEnemy(enemy, def);
     } else {
       this.audio.hit();
       this.explode(enemy.x, enemy.y, def.color, 7, 1.3);
@@ -564,33 +647,6 @@ export class Game {
     this.shake = Math.min(14, this.shake + (big ? 6 : 3));
     this.explode(enemy.x, enemy.y, def.color, big ? 32 : 20, big ? 4 : 2.4);
     this.maybeDropPowerUp(enemy);
-  }
-
-  private killBoss(enemy: Enemy): void {
-    this.bossActive = false;
-    this.combo++;
-    this.comboTimer = COMBO_WINDOW;
-    const mult = this.multiplier();
-    const gain = (5000 + this.level * 600) * mult;
-    this.score += gain;
-    this.cbs.onScore(this.score);
-    this.cbs.onCombo(mult);
-    this.addPopup(enemy.x, enemy.y, `+${gain}`, "#ffd166", 22);
-    this.setBanner("PATRON YOK EDİLDİ");
-    this.audio.explosion(true);
-    this.shake = 24;
-    this.flash = 0.8;
-    for (let i = 0; i < 3; i++) {
-      this.explode(
-        enemy.x + (Math.random() - 0.5) * 44,
-        enemy.y + (Math.random() - 0.5) * 24,
-        "#ff5470",
-        30,
-        5,
-      );
-    }
-    this.spawnPowerUp("life", enemy.x, enemy.y);
-    this.spawnPowerUp("bomb", enemy.x, enemy.y);
   }
 
   private maybeDropPowerUp(enemy: Enemy): void {
@@ -697,7 +753,7 @@ export class Game {
   private triggerBomb(): void {
     let gained = 0;
     for (const enemy of this.enemies) {
-      if (!enemy.alive || enemy.kind === "boss") continue;
+      if (!enemy.alive) continue;
       const def = ENEMY_DEFS[enemy.kind];
       gained += def.score;
       this.explode(enemy.x, enemy.y, def.color, 18, 3);
@@ -719,7 +775,7 @@ export class Game {
   }
 
   private updateEnemies(dt: number): void {
-    if (this.playing && !this.bossActive && this.enemies.length < MAX_ENEMIES) {
+    if (this.playing && this.enemies.length < MAX_ENEMIES) {
       this.spawnTimer -= dt;
       if (this.spawnTimer <= 0) {
         this.spawnTimer =
@@ -732,27 +788,15 @@ export class Game {
 
     const mult = 1 + (this.level - 1) * 0.12;
     for (const enemy of this.enemies) {
-      const isBoss = enemy.kind === "boss";
-      if (isBoss) {
-        enemy.rot += enemy.rotSpeed * dt;
-        enemy.x = enemy.baseX + Math.sin(this.time * 0.75) * Math.max(60, this.W * 0.3);
-        enemy.x = clamp(enemy.x, enemy.w / 2, this.W - enemy.w / 2);
-      } else {
-        enemy.y += enemy.vy * dt;
-        enemy.wobble += enemy.wobbleSpeed * dt;
-        enemy.x = enemy.baseX + Math.sin(enemy.wobble * 2) * 20 * mult;
-        enemy.x = clamp(enemy.x, enemy.w / 2, this.W - enemy.w / 2);
-      }
+      enemy.rot += enemy.rotSpeed * dt;
+      enemy.y += enemy.vy * dt;
+      enemy.wobble += enemy.wobbleSpeed * dt;
+      enemy.x = enemy.baseX + Math.sin(enemy.wobble * 2) * 20 * mult;
+      enemy.x = clamp(enemy.x, enemy.w / 2, this.W - enemy.w / 2);
       if (enemy.flash > 0) enemy.flash -= dt;
 
       if (this.playing && enemy.y > 10) {
-        if (isBoss) {
-          enemy.shootTimer -= dt;
-          if (enemy.shootTimer <= 0 && this.bullets.length < MAX_BULLETS - 8) {
-            enemy.shootTimer = ENEMY_DEFS.boss.shootEvery;
-            this.fireBossPattern(enemy);
-          }
-        } else if (enemy.kind === "spinner" && enemy.y < this.H * 0.8) {
+        if (enemy.kind === "spinner" && enemy.y < this.H * 0.8) {
           enemy.shootTimer -= dt;
           if (enemy.shootTimer <= 0 && this.bullets.length < MAX_BULLETS) {
             enemy.shootTimer = ENEMY_DEFS.spinner.shootEvery * (0.85 + Math.random() * 0.3);
@@ -781,7 +825,7 @@ export class Game {
         enemy.y += enemy.vy * dt;
       }
 
-      if (!isBoss && enemy.y > this.H + 70) enemy.alive = false;
+      if (enemy.y > this.H + 70) enemy.alive = false;
 
       if (
         enemy.alive &&
@@ -797,7 +841,7 @@ export class Game {
           this.player.h * 0.7,
         )
       ) {
-        if (!isBoss) enemy.alive = false;
+        enemy.alive = false;
         this.damagePlayer();
       }
     }
@@ -837,39 +881,6 @@ export class Game {
     this.audio.enemyShot();
   }
 
-  private fireBossPattern(enemy: Enemy): void {
-    this.bossPattern++;
-    const speed = ENEMY_BULLET_SPEED * 0.95;
-    const originY = enemy.y + enemy.h * 0.45;
-    if (this.bossPattern % 2 === 1) {
-      for (let i = -2; i <= 2; i++) {
-        const angle = Math.PI / 2 + i * 0.24;
-        this.spawnBulletWithVelocity(
-          enemy.x,
-          originY,
-          Math.cos(angle) * speed,
-          Math.sin(angle) * speed,
-          false,
-        );
-      }
-    } else {
-      const dx = this.player.x - enemy.x;
-      const dy = this.player.y - enemy.y;
-      const aim = Math.atan2(dy, dx);
-      for (const offset of [-0.3, 0, 0.3]) {
-        const angle = aim + offset;
-        this.spawnBulletWithVelocity(
-          enemy.x,
-          originY,
-          Math.cos(angle) * speed,
-          Math.sin(angle) * speed,
-          false,
-        );
-      }
-    }
-    this.audio.enemyShot();
-  }
-
   private spawnBulletWithVelocity(
     x: number,
     y: number,
@@ -894,17 +905,34 @@ export class Game {
   private spawnEnemy(): void {
     const kind = this.pickKind();
     const def = ENEMY_DEFS[kind];
-    const mult = 1 + (this.level - 1) * 0.12;
     const x = clamp(
-      def.w / 2 + 10 + Math.random() * (this.W - def.w - 20),
+      def.w / 2 + 10 + Math.random() * Math.max(0, this.W - def.w - 20),
       def.w / 2,
       this.W - def.w / 2,
     );
+    this.pushEnemy(kind, x, -def.h - 8);
+  }
+
+  private spawnDroneLine(): void {
+    const count = Math.min(6, 4 + Math.floor(Math.random() * 2));
+    const spacing = 48;
+    const total = (count - 1) * spacing;
+    const cx = this.W / 2;
+    for (let i = 0; i < count; i++) {
+      const x = cx - total / 2 + i * spacing;
+      const y = -20 - i * 14;
+      this.pushEnemy("drone", x, y);
+    }
+  }
+
+  private pushEnemy(kind: EnemyKind, x: number, y: number): void {
+    const def = ENEMY_DEFS[kind];
+    const mult = 1 + (this.level - 1) * 0.12;
     this.enemies.push({
       id: this.nextId++,
       kind,
       x,
-      y: -def.h - 8,
+      y,
       w: def.w,
       h: def.h,
       vx: 0,
@@ -920,38 +948,6 @@ export class Game {
       flash: 0,
       dive: false,
     });
-  }
-
-  private spawnDroneLine(): void {
-    const count = Math.min(6, 4 + Math.floor(Math.random() * 2));
-    const spacing = 48;
-    const total = (count - 1) * spacing;
-    const cx = this.W / 2;
-    const def = ENEMY_DEFS.drone;
-    const mult = 1 + (this.level - 1) * 0.12;
-    for (let i = 0; i < count; i++) {
-      const x = cx - total / 2 + i * spacing;
-      this.enemies.push({
-        id: this.nextId++,
-        kind: "drone",
-        x,
-        y: -20 - i * 14,
-        w: def.w,
-        h: def.h,
-        vx: 0,
-        vy: def.speed * mult * (0.9 + Math.random() * 0.2),
-        alive: true,
-        hp: 1,
-        baseX: x,
-        wobble: Math.random() * Math.PI * 2,
-        wobbleSpeed: 1 + Math.random() * 1.4,
-        shootTimer: 9,
-        rot: 0,
-        rotSpeed: 1,
-        flash: 0,
-        dive: false,
-      });
-    }
   }
 
   private pickKind(): EnemyKind {
@@ -1111,9 +1107,6 @@ export class Game {
     paintParticles(ctx, this.particles);
     paintPopups(ctx, this.popups);
     ctx.restore();
-
-    const boss = this.enemies.find((e) => e.kind === "boss" && e.alive);
-    if (boss) paintBossBar(ctx, W, boss, this.bossMaxHp);
 
     if (this.flash > 0) {
       ctx.fillStyle = `rgba(255,255,255,${(this.flash * 0.35).toFixed(3)})`;

@@ -189,7 +189,7 @@ export default function App() {
             <p>Aracın otomatik ateş eder. Düşman mermilerine çarpma!</p>
             <p>Düşmanlardan düşen güçleri topla: Kalkan, hızlı ateş, bomba, ekstra can.</p>
             <p>Hızlı seri öldürüşler komboyu yükseltir, skor çarpanın artar.</p>
-            <p>Seviye 5'ten itibaren her 5 seviyede bir bölüm patronu gelir.</p>
+            <p>Dalgalar seviye ilerledikçe hızlanır ve çeşitlenir.</p>
           </div>
 
           <p className="best">EN İYİ SKOR: {highScore.toLocaleString("tr-TR")}</p>

@@ -8,12 +8,14 @@ altında, düşman uzay araçları yukarıdan iner.
 - Parmağınızı ekranda sürükleyerek (veya masaüstünde ok tuşları / fare ile) uzay
   aracınızı hareket ettirin.
 - Aracınız yukarıya otomatik ateş eder.
-- Gelen düşman dalgalarını (drone, avcı, tank, döner, kamikaze) ve seviye 5'ten
-  itibaren her 5 seviyede bir gelen bölüm patronlarını yok edin; düşman mermilerine
-  ve çarpışmalara dikkat edin.
+- Gelen düşman dalgalarını (drone, avcı, tank, döner, kamikaze) yok edin; düşman
+  mermilerine ve çarpışmalara dikkat edin.
 - Düşmanlardan düşen güçleri toplayın: Kalkan, hızlı ateş, bomba ve ekstra can.
+- Her seviyede sürpriz hücum düzenleri bekler: drone spiralleri, avcı kolları,
+  döner fanları, kamikaze saldırıları ve tank kuşatmaları.
 - Hızlı seri imhalar komboyu yükseltir ve skor çarpanınızı artırır.
-- Her 18 saniyede bir seviye atlanır; düşmanlar hızlanır ve çeşitlenir.
+- Her 18 saniyede bir seviye atlanır; seviyeyi temizlediğiniz için bonus skor,
+  düşmanlar hızlanır ve çeşitlenir.
 
 En iyi skor tarayıcınızda (`localStorage`) saklanır.
 

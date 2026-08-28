@@ -3,13 +3,7 @@ export interface Vec {
   y: number;
 }
 
-export type EnemyKind =
-  | "drone"
-  | "fighter"
-  | "tank"
-  | "spinner"
-  | "kamikaze"
-  | "boss";
+export type EnemyKind = "drone" | "fighter" | "tank" | "spinner" | "kamikaze";
 
 export type PowerKind = "shield" | "rapid" | "bomb" | "life";
 
