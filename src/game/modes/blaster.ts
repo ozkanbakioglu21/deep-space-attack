@@ -117,8 +117,15 @@ export class BlasterMode extends BaseMode {
             m.alive = false;
             const def = ENEMY_DEFS.meteor;
             this.explode(m.x, m.y, "#ff9f43", 22, 11, 190);
-            this.bumpScore(def.score);
+            this.bumpCombo();
+            const gain = Math.round(def.score * this.comboMul());
+            this.bumpScore(gain);
+            this.addPopup(m.x, m.y - 18, `+${gain}`, "#ffd166", 14);
             this.audio.explosion();
+            this.addHitStop(0.035);
+            this.vibrate(12);
+            this.shake = Math.min(10, this.shake + 4);
+            this.chainBoom(m.x, m.y);
           }
           break;
         }
@@ -191,7 +198,64 @@ export class BlasterMode extends BaseMode {
     });
   }
 
+  private chainBoom(x: number, y: number): void {
+    const radius = 96;
+    const stack: Array<{ x: number; y: number }> = [{ x, y }];
+    let chains = 0;
+    while (stack.length > 0 && chains < 14) {
+      const pos = stack.pop();
+      if (!pos) break;
+      for (const m of this.meteors) {
+        if (!m.alive) continue;
+        if (Math.hypot(m.x - pos.x, m.y - pos.y) <= radius) {
+          m.hp -= 1;
+          this.explode(m.x, m.y, "#ffd166", 6, 4, 90);
+          if (m.hp <= 0) {
+            m.alive = false;
+            chains++;
+            const gain = Math.round(15 * this.comboMul());
+            this.bumpScore(gain);
+            this.addPopup(m.x, m.y - 16, `ZİNCİR +${gain}`, "#ffe08a", 13);
+            stack.push({ x: m.x, y: m.y });
+          }
+        }
+      }
+    }
+    if (chains > 0) {
+      this.audio.explosion();
+      this.addHitStop(0.04);
+      this.vibrate(18);
+    }
+  }
+
   protected renderEntities(ctx: CanvasRenderingContext2D): void {
+    if (this.hasPointer) {
+      const p = this.player;
+      const dx = this.pointerX - p.x;
+      const dy = this.pointerY - p.y - 10;
+      const dist = Math.hypot(dx, dy) || 1;
+      const len = Math.min(180, dist);
+      const tx = p.x + (dx / dist) * len;
+      const ty = p.y + (dy / dist) * len - 10;
+      const txWorld = p.x + (dx / dist) * 20;
+      const tyWorld = p.y + (dy / dist) * 20 - 10;
+      ctx.save();
+      ctx.globalAlpha = 0.10 + 0.05 * Math.sin(this.time * 6);
+      ctx.strokeStyle = "#b18cff";
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "#b18cff";
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(txWorld, tyWorld);
+      ctx.lineTo(tx, ty);
+      ctx.stroke();
+      ctx.globalAlpha = 0.45;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(tx, ty, 7, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     for (const b of this.bullets) paintBullet(ctx, b);
     for (const m of this.meteors) paintEnemy(ctx, m, this.time);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time);

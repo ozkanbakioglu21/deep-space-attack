@@ -1,18 +1,21 @@
 import { ENEMY_DEFS } from "../defs";
-import { PLAYER_SPEED } from "../constants";
+import { MAGNET_TIME, PLAYER_SPEED } from "../constants";
 import { paintEnemy, paintGlint, paintPlayer } from "../painter";
 import type { ChapterDef, Enemy, GameCallbacks, Glint } from "../types";
 import { BaseMode } from "./base";
 
 const GLINTS_PER_WAVE = 10;
 const GLINT_LIFE = 9;
+const MAGNET_LIFE = 8;
 
 export class GatherMode extends BaseMode {
   private glints: Glint[] = [];
+  private magnets: Glint[] = [];
   private meteors: Enemy[] = [];
   private nextId = 1;
   private spawnTimer = 1.2;
   private collected = 0;
+  private magnetSpawn = 6;
 
   protected get palette(): ChapterDef {
     return {
@@ -37,32 +40,51 @@ export class GatherMode extends BaseMode {
   beginGame(): void {
     super.startRun();
     this.glints = [];
+    this.magnets = [];
     this.meteors = [];
     this.spawnTimer = 1.2;
+    this.magnetSpawn = 6;
     this.collected = 0;
     this.setBanner("DALGA 1", "YILDIZLARI TOPLA, GÖKTAŞLARINDAN KAÇ!");
   }
 
   protected resetIdle(): void {
     this.glints = [];
+    this.magnets = [];
     this.meteors = [];
     this.player = this.makePlayer();
   }
 
   protected updateSub(dt: number): void {
     this.moveShip(dt);
+    this.spawnThruster("#8df0ff");
 
     const p = this.player;
     if (p.invincible > 0) p.invincible -= dt;
 
     const target = Math.min(8, 3 + this.level);
-    if (this.glints.length < target) this.spawnGlint();
+    if (this.glints.length < target && Math.random() < dt * 4) this.spawnGlint();
 
     const inter = Math.max(0.85, 1.6 - this.level * 0.07);
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = inter * (0.7 + Math.random() * 0.6);
       this.pushMeteor();
+    }
+
+    this.magnetSpawn -= dt;
+    if (
+      this.magnetSpawn <= 0 &&
+      !this.magnets.some((g) => g.alive && g.life > 0)
+    ) {
+      this.magnetSpawn = 8 + Math.random() * 5;
+      this.spawnMagnet();
+    }
+
+    if (p.magnet > 0) {
+      p.magnet -= dt;
+      this.pullTowardPlayer(this.glints, dt);
+      this.pullTowardPlayer(this.magnets, dt);
     }
 
     const mult = 1 + (this.level - 1) * 0.1;
@@ -80,6 +102,8 @@ export class GatherMode extends BaseMode {
         m.alive = false;
         this.explode(m.x, m.y, "#ff9f43", 18, 10, 170);
         this.registerHit();
+      } else {
+        this.applyNearMiss(m, 30, "ÇOK YAKIN!", "#ffe08a");
       }
     }
     this.meteors = this.meteors.filter((m) => m.alive && m.y < this.H + 300);
@@ -89,15 +113,24 @@ export class GatherMode extends BaseMode {
       g.rot += dt * 1.6;
       if (g.life <= 0) continue;
       if (
-        this.overlaps(g.x, g.y, g.w, g.h, p.x, p.y, p.w * 0.9, p.h * 0.9)
+        this.overlaps(g.x, g.y, g.w, g.h, p.x, p.y, p.w * (p.magnet > 0 ? 2 : 0.9), p.h * (p.magnet > 0 ? 2 : 0.9))
       ) {
         g.life = 0;
-        const gained = 50 * this.level;
+        const gained = Math.round(30 * this.level * (g.gold ? 5 : 1) * this.comboMul());
         this.bumpScore(gained);
+        this.bumpCombo();
         this.collected++;
-        this.addPopup(g.x, g.y - 20, `+${gained}`, "#9df4ff", 14);
-        this.explode(g.x, g.y, "#8df0ff", 10, 5, 90);
+        this.addPopup(
+          g.x,
+          g.y - 20,
+          `+${gained}`,
+          g.gold ? "#ffd166" : "#9df4ff",
+          g.gold ? 16 : 14,
+        );
+        this.explode(g.x, g.y, g.gold ? "#ffd166" : "#8df0ff", 12, 5, 100);
         this.audio.powerup();
+        this.addHitStop(0.025);
+        this.vibrate(10);
         if (this.collected % GLINTS_PER_WAVE === 0) {
           this.level++;
           this.cbs.onLevel(this.level);
@@ -107,6 +140,35 @@ export class GatherMode extends BaseMode {
       }
     }
     this.glints = this.glints.filter((g) => g.life > 0);
+
+    for (const g of this.magnets) {
+      g.life -= dt;
+      g.rot += dt * 2.4;
+      if (g.life <= 0) continue;
+      if (this.overlaps(g.x, g.y, g.w, g.h, p.x, p.y, p.w * 0.9, p.h * 0.9)) {
+        g.life = 0;
+        p.magnet = MAGNET_TIME;
+        this.addPopup(g.x, g.y - 22, "MIKNATIS! +9sn", "#7bff8e", 15);
+        this.explode(g.x, g.y, "#7bff8e", 16, 6, 120);
+        this.audio.powerup();
+        this.addHitStop(0.04);
+      }
+    }
+    this.magnets = this.magnets.filter((g) => g.alive && g.life > 0);
+  }
+
+  private pullTowardPlayer(targets: Glint[], dt: number): void {
+    const p = this.player;
+    for (const g of targets) {
+      const dx = p.x - g.x;
+      const dy = p.y - g.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 1 && dist < 170) {
+        const pull = 180 * dt;
+        g.x += (dx / dist) * pull;
+        g.y += (dy / dist) * pull;
+      }
+    }
   }
 
   private moveShip(dt: number): void {
@@ -147,6 +209,22 @@ export class GatherMode extends BaseMode {
       life: GLINT_LIFE,
       maxLife: GLINT_LIFE,
       alive: true,
+      gold: Math.random() < 0.15,
+    });
+  }
+
+  private spawnMagnet(): void {
+    const size = 24;
+    this.magnets.push({
+      x: size / 2 + 8 + Math.random() * (this.W - size - 16),
+      y: 60 + Math.random() * (this.H - 200),
+      w: size,
+      h: size,
+      rot: Math.random() * Math.PI * 2,
+      life: MAGNET_LIFE,
+      maxLife: MAGNET_LIFE,
+      alive: true,
+      magnet: true,
     });
   }
 
@@ -173,11 +251,14 @@ export class GatherMode extends BaseMode {
       rotSpeed: 0.8 + Math.random() * 1.8,
       flash: 0,
       dive: false,
+      gold: Math.random() < 0.14,
+      nearMissed: false,
     });
   }
 
   protected renderEntities(ctx: CanvasRenderingContext2D): void {
     for (const g of this.glints) paintGlint(ctx, g, this.time);
+    for (const g of this.magnets) paintGlint(ctx, g, this.time);
     for (const m of this.meteors) paintEnemy(ctx, m, this.time);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time);
   }

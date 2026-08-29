@@ -9,6 +9,7 @@ import {
 import { PLAYER_H, PLAYER_W } from "../constants";
 import type {
   ChapterDef,
+  Enemy,
   GameCallbacks,
   Particle,
   Popup,
@@ -38,6 +39,11 @@ export abstract class BaseMode implements GameAdapter {
   protected stars: Star[] = [];
   protected particles: Particle[] = [];
   protected popups: Popup[] = [];
+
+  protected combo = 0;
+  protected maxComboMult = 8;
+  protected hitStop = 0;
+  protected lastDt = 1 / 60;
 
   protected banner: string | null = null;
   protected bannerSub: string | null = null;
@@ -99,6 +105,8 @@ export abstract class BaseMode implements GameAdapter {
     this.popups = [];
     this.banner = null;
     this.bannerSub = null;
+    this.combo = 0;
+    this.hitStop = 0;
     this.resetIdle();
   }
 
@@ -135,12 +143,18 @@ export abstract class BaseMode implements GameAdapter {
   };
 
   private update(dt: number): void {
-    this.time += dt;
-    this.updateStars(dt);
-    this.updateParticles(dt);
-    this.updatePopups(dt);
+    this.lastDt = dt;
+    let d = dt;
+    if (this.hitStop > 0) {
+      this.hitStop -= dt;
+      d = dt * 0.1;
+    }
+    this.time += d;
+    this.updateStars(d);
+    this.updateParticles(d);
+    this.updatePopups(d);
     if (this.banner) {
-      this.bannerTimer -= dt;
+      this.bannerTimer -= d;
       if (this.bannerTimer <= 0) {
         this.banner = null;
         this.bannerSub = null;
@@ -148,7 +162,7 @@ export abstract class BaseMode implements GameAdapter {
     }
     this.shake = Math.max(0, this.shake - dt * 55);
     this.flash = Math.max(0, this.flash - dt * 2.2);
-    if (this.playing) this.updateSub(dt);
+    if (this.playing) this.updateSub(d);
   }
 
   private updateStars(dt: number): void {
@@ -215,6 +229,9 @@ export abstract class BaseMode implements GameAdapter {
       fireCooldown: 0,
       shield: 0,
       rapid: 0,
+      magnet: 0,
+      dual: 0,
+      freeze: 0,
     };
   }
 
@@ -231,6 +248,8 @@ export abstract class BaseMode implements GameAdapter {
     this.popups = [];
     this.banner = null;
     this.bannerSub = null;
+    this.combo = 0;
+    this.hitStop = 0;
     this.pointerId = null;
     this.hasPointer = false;
     this.keys.clear();
@@ -238,6 +257,7 @@ export abstract class BaseMode implements GameAdapter {
     this.cbs.onScore(0);
     this.cbs.onLives(this.lives);
     this.cbs.onLevel(1);
+    this.cbs.onCombo(1);
   }
 
   protected finish(): void {
@@ -333,11 +353,84 @@ export abstract class BaseMode implements GameAdapter {
     this.explode(this.player.x, this.player.y, "#6ff3ff", 26, 11, 190);
     this.shake = Math.min(16, this.shake + 9);
     this.flash = 1;
+    this.vibrate(45);
     this.player.invincible = grace;
+    this.resetCombo();
     if (this.lives <= 0) {
       this.player.alive = false;
       this.finish();
     }
+  }
+
+  protected comboMul(): number {
+    return Math.min(1 + Math.floor(this.combo / 5), this.maxComboMult);
+  }
+
+  protected bumpCombo(): void {
+    this.combo++;
+    this.cbs.onCombo(this.comboMul());
+  }
+
+  protected resetCombo(): void {
+    this.combo = 0;
+    this.cbs.onCombo(1);
+  }
+
+  protected addHitStop(seconds: number): void {
+    this.hitStop = Math.max(this.hitStop, seconds);
+  }
+
+  protected vibrate(ms: number): void {
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try {
+        navigator.vibrate(ms);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  protected spawnThruster(color = "#8df0ff"): void {
+    const p = this.player;
+    if (!p.alive) return;
+    const tailX = p.x - Math.sin(p.tilt) * p.h * 0.45;
+    const tailY = p.y + Math.cos(p.tilt) * p.h * 0.45;
+    this.particles.push({
+      x: tailX + (Math.random() - 0.5) * 6,
+      y: tailY,
+      vx: (Math.random() - 0.5) * 26 - 16,
+      vy: -30 - Math.random() * 40,
+      life: 0.28 + Math.random() * 0.16,
+      maxLife: 0.42,
+      size: 2 + Math.random() * 2.2,
+      color,
+      gravity: 0,
+    });
+  }
+
+  protected applyNearMiss(
+    m: Enemy,
+    bonus: number,
+    label: string,
+    color: string,
+  ): boolean {
+    if (!m.alive || m.nearMissed) return false;
+    const p = this.player;
+    const hitTh = (m.w + p.w * 0.7) / 2;
+    const nearTh = hitTh + 22;
+    const prevY = m.y - m.vy * this.lastDt;
+    const crossed = prevY <= p.y && m.y > p.y;
+    if (!crossed) return false;
+    const dx = Math.abs(m.x - p.x);
+    if (dx >= hitTh && dx <= nearTh) {
+      m.nearMissed = true;
+      this.bumpScore(bonus);
+      this.addPopup(m.x, p.y - 26, `${label} +${bonus}`, color, 15);
+      this.vibrate(14);
+      this.flash = Math.max(this.flash, 0.22);
+      return true;
+    }
+    return false;
   }
 
   // ---- Input ----

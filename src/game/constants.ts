@@ -16,4 +16,7 @@ export const MAX_POWERUPS = 4;
 export const POWERUP_SPEED = 105;
 export const SHIELD_TIME = 7;
 export const RAPID_TIME = 8;
+export const MAGNET_TIME = 9;
+export const DUAL_TIME = 8;
+export const FREEZE_TIME = 5;
 export const COMBO_WINDOW = 2.2;

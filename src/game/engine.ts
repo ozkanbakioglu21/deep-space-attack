@@ -4,9 +4,12 @@ import { CHAPTERS, ENEMY_DEFS, POWERUP_INFO } from "./defs";
 import {
   BASE_SPAWN_INTERVAL,
   COMBO_WINDOW,
+  DUAL_TIME,
   ENEMY_BULLET_SPEED,
+  FREEZE_TIME,
   INVINCIBLE_TIME,
   LEVEL_DURATION,
+  MAGNET_TIME,
   MAX_BULLETS,
   MAX_ENEMIES,
   MAX_LIVES,
@@ -55,6 +58,9 @@ export interface PlayerState {
   fireCooldown: number;
   shield: number;
   rapid: number;
+  magnet: number;
+  dual: number;
+  freeze: number;
 }
 
 type LevelEventKind =
@@ -117,6 +123,9 @@ export class Game {
     fireCooldown: 0,
     shield: 0,
     rapid: 0,
+    magnet: 0,
+    dual: 0,
+    freeze: 0,
   };
 
   private enemies: Enemy[] = [];
@@ -194,6 +203,9 @@ export class Game {
     this.player.fireCooldown = 0;
     this.player.shield = 0;
     this.player.rapid = 0;
+    this.player.magnet = 0;
+    this.player.dual = 0;
+    this.player.freeze = 0;
     this.cbs.onScore(this.score);
     this.cbs.onLives(this.lives);
     this.cbs.onLevel(this.level);
@@ -229,6 +241,9 @@ export class Game {
     this.player.invincible = 0;
     this.player.shield = 0;
     this.player.rapid = 0;
+    this.player.magnet = 0;
+    this.player.dual = 0;
+    this.player.freeze = 0;
     this.events = [];
     this.banner = null;
     this.bannerSub = null;
@@ -545,6 +560,9 @@ export class Game {
     if (p.invincible > 0) p.invincible -= dt;
     if (p.shield > 0) p.shield -= dt;
     if (p.rapid > 0) p.rapid -= dt;
+    if (p.magnet > 0) p.magnet -= dt;
+    if (p.dual > 0) p.dual -= dt;
+    if (p.freeze > 0) p.freeze -= dt;
 
     if (p.alive && Math.abs(p.vx) > 90 && Math.random() < 0.6) {
       this.particles.push({
@@ -576,6 +594,12 @@ export class Game {
       this.spawnBullet(p.x - spread, y, -PLAYER_BULLET_SPEED, true);
       this.spawnBullet(p.x, y - 6, -PLAYER_BULLET_SPEED - 60, true);
       this.spawnBullet(p.x + spread, y, -PLAYER_BULLET_SPEED, true);
+    } else if (p.dual > 0) {
+      const cannon = 11;
+      this.spawnBullet(p.x - cannon, y, -PLAYER_BULLET_SPEED, true);
+      this.spawnBullet(p.x + cannon, y, -PLAYER_BULLET_SPEED, true);
+      this.spawnBullet(p.x - cannon - 8, y, -PLAYER_BULLET_SPEED, true, -150);
+      this.spawnBullet(p.x + cannon + 8, y, -PLAYER_BULLET_SPEED, true, 150);
     } else {
       const cannon = 11;
       this.spawnBullet(p.x - cannon, y, -PLAYER_BULLET_SPEED, true);
@@ -702,6 +726,12 @@ export class Game {
       case "spinner":
         chance = 0.24;
         break;
+      case "speeder":
+        chance = 0.1;
+        break;
+      case "mine":
+        chance = 0.08;
+        break;
       default:
         chance = 0.12;
         break;
@@ -709,10 +739,14 @@ export class Game {
     if (Math.random() >= chance || this.powerups.length >= MAX_POWERUPS) return;
     const roll = Math.random();
     let kind: PowerKind;
-    if (this.lives < START_LIVES && roll < 0.18) kind = "life";
-    else if (roll < 0.5) kind = "shield";
-    else if (roll < 0.85) kind = "rapid";
-    else kind = "bomb";
+    if (this.lives < START_LIVES && roll < 0.13) kind = "life";
+    else if (roll < 0.33) kind = "shield";
+    else if (roll < 0.52) kind = "rapid";
+    else if (roll < 0.68) kind = "magnet";
+    else if (roll < 0.8) kind = "dual";
+    else if (roll < 0.9) kind = "freeze";
+    else if (roll < 0.97) kind = "bomb";
+    else kind = "life";
     this.spawnPowerUp(kind, enemy.x, enemy.y);
   }
 
@@ -732,7 +766,18 @@ export class Game {
   }
 
   private updatePowerups(dt: number): void {
+    const magnetOn = this.player.magnet > 0 && this.player.alive;
     for (const pu of this.powerups) {
+      if (magnetOn) {
+        const dx = this.player.x - pu.x;
+        const dy = this.player.y - pu.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 1 && dist < 160) {
+          const pull = 200 * dt;
+          pu.x += (dx / dist) * pull;
+          pu.y += (dy / dist) * pull;
+        }
+      }
       pu.y += pu.vy * dt;
       pu.rot += dt * 3;
       if (pu.y > this.H + 30) {
@@ -769,6 +814,18 @@ export class Game {
         break;
       case "rapid":
         this.player.rapid = RAPID_TIME;
+        this.audio.powerup();
+        break;
+      case "magnet":
+        this.player.magnet = MAGNET_TIME;
+        this.audio.powerup();
+        break;
+      case "dual":
+        this.player.dual = DUAL_TIME;
+        this.audio.powerup();
+        break;
+      case "freeze":
+        this.player.freeze = FREEZE_TIME;
         this.audio.powerup();
         break;
       case "bomb":
@@ -825,13 +882,26 @@ export class Game {
     }
 
     const mult = 1 + (this.level - 1) * 0.12;
+    const tScale = this.player.freeze > 0 ? 0.25 : 1;
     for (const enemy of this.enemies) {
       enemy.rot += enemy.rotSpeed * dt;
-      enemy.y += enemy.vy * dt;
+      enemy.y += enemy.vy * dt * tScale;
       enemy.wobble += enemy.wobbleSpeed * dt;
-      enemy.x = enemy.baseX + Math.sin(enemy.wobble * 2) * 20 * mult;
+      enemy.x = enemy.baseX + Math.sin(enemy.wobble * 2) * 20 * mult * tScale;
       enemy.x = clamp(enemy.x, enemy.w / 2, this.W - enemy.w / 2);
       if (enemy.flash > 0) enemy.flash -= dt;
+
+      if (enemy.kind === "speeder") {
+        enemy.x = clamp(
+          enemy.x + enemy.vx * dt * tScale,
+          -enemy.w,
+          this.W + enemy.w,
+        );
+        if (enemy.x <= -enemy.w || enemy.x >= this.W + enemy.w) {
+          enemy.alive = false;
+          continue;
+        }
+      }
 
       if (this.playing && enemy.y > 10) {
         if (enemy.kind === "spinner" && enemy.y < this.H * 0.8) {
@@ -856,7 +926,7 @@ export class Game {
         const dx = this.player.x - enemy.x;
         const dy = this.player.y - enemy.y;
         const dist = Math.hypot(dx, dy) || 1;
-        const speed = 230 * mult;
+        const speed = 230 * mult * tScale;
         enemy.vx = (dx / dist) * speed;
         enemy.vy = (dy / dist) * speed;
         enemy.x += enemy.vx * dt;
@@ -966,7 +1036,7 @@ export class Game {
   private pushEnemy(kind: EnemyKind, x: number, y: number): void {
     const def = ENEMY_DEFS[kind];
     const mult = 1 + (this.level - 1) * 0.12;
-    this.enemies.push({
+    const e: Enemy = {
       id: this.nextId++,
       kind,
       x,
@@ -985,16 +1055,28 @@ export class Game {
       rotSpeed: 1 + Math.random(),
       flash: 0,
       dive: false,
-    });
+    };
+    if (kind === "speeder") {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      e.vx = dir * 310 * mult;
+      e.vy = 0;
+      e.x = dir === 1 ? -def.w - 10 : this.W + def.w + 10;
+      e.y = this.H * (0.18 + Math.random() * 0.28);
+    }
+    this.enemies.push(e);
   }
 
   private pickKind(): EnemyKind {
     const lvl = this.level;
-    const fw = Math.min(0.36, 0.1 + lvl * 0.03);
-    const tw = Math.min(0.22, 0.02 + lvl * 0.02);
-    const sw = lvl >= 3 ? Math.min(0.22, 0.05 + lvl * 0.02) : 0;
-    const kw = lvl >= 4 ? Math.min(0.24, 0.04 + lvl * 0.02) : 0;
-    const mw = this.chapterFor(lvl) >= 2 ? Math.min(0.2, 0.08 + lvl * 0.008) : 0;
+    const cap = (base: number, per: number, max: number) =>
+      Math.min(max, base + lvl * per);
+    const fw = cap(0.08, 0.025, 0.26);
+    const tw = cap(0.02, 0.02, 0.18);
+    const sw = lvl >= 3 ? cap(0.04, 0.015, 0.14) : 0;
+    const kw = lvl >= 4 ? cap(0.03, 0.015, 0.13) : 0;
+    const spw = lvl >= 2 ? cap(0.06, 0.012, 0.12) : 0;
+    const miw = lvl >= 2 ? cap(0.04, 0.01, 0.1) : 0;
+    const mw = this.chapterFor(lvl) >= 2 ? cap(0.12, 0.008, 0.15) : 0;
     let roll = Math.random();
     if (roll < mw) return "meteor";
     roll -= mw;
@@ -1005,6 +1087,10 @@ export class Game {
     if (roll < sw) return "spinner";
     roll -= sw;
     if (roll < kw) return "kamikaze";
+    roll -= kw;
+    if (roll < spw) return "speeder";
+    roll -= spw;
+    if (roll < miw) return "mine";
     return "drone";
   }
 

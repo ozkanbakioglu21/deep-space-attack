@@ -166,6 +166,70 @@ export function paintPlayer(
     ctx.fill();
     ctx.restore();
   }
+
+  if (p.dual > 0) {
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.translate(p.x + side * (p.w / 2 + 6), y + Math.sin(time * 10) * 1.5);
+      ctx.fillStyle = "#38e1ff";
+      ctx.shadowColor = "#38e1ff";
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(0, -4);
+      ctx.lineTo(4, 3);
+      ctx.lineTo(-4, 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  if (p.freeze > 0) {
+    const icy = 0.3 + 0.3 * Math.sin(time * 5);
+    ctx.save();
+    ctx.translate(p.x, y);
+    ctx.strokeStyle = `rgba(200, 165, 255, ${0.25 + icy * 0.25})`;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = "#c8a5ff";
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(0, 0, 30, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.lineCap = "round";
+    for (let i = 0; i < 3; i++) {
+      const a = (Math.PI / 3) * i + time;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 34, Math.sin(a) * 34);
+      ctx.lineTo(Math.cos(a) * 40, Math.sin(a) * 40);
+      ctx.stroke();
+    }
+    ctx.lineCap = "butt";
+    ctx.restore();
+  }
+
+  if (p.magnet > 0) {
+    const pulse = 0.5 + 0.5 * Math.sin(time * 6);
+    const radius = 30 + pulse * 3;
+    ctx.save();
+    ctx.translate(p.x, y);
+    ctx.strokeStyle = `rgba(123, 255, 142, ${0.25 + pulse * 0.3})`;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = "#7bff8e";
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    for (let i = 0; i < 3; i++) {
+      const a = time * 2.4 + (Math.PI * 2 * i) / 3;
+      ctx.fillStyle = "#7bff8e";
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * radius, Math.sin(a) * radius, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
 }
 
 export function paintBullet(
@@ -328,10 +392,11 @@ export function paintEnemy(
     ctx.closePath();
     ctx.fill();
   } else if (enemy.kind === "meteor") {
+    const gold = !!enemy.gold;
     ctx.save();
     ctx.rotate(enemy.rot);
-    ctx.fillStyle = "#4a2d14";
-    ctx.strokeStyle = def.color;
+    ctx.fillStyle = gold ? "#5a3a10" : "#4a2d14";
+    ctx.strokeStyle = gold ? "#ffd166" : def.color;
     ctx.lineWidth = 2;
     for (let k = 0; k < 8; k++) {
       const a = (Math.PI * 2 * k) / 8;
@@ -354,14 +419,76 @@ export function paintEnemy(
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+    if (gold) {
+      ctx.strokeStyle = "rgba(255,209,102,0.5)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, def.w / 2 + 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.restore();
     const ember = 3 + Math.sin(time * 10) * 2;
-    ctx.fillStyle = "rgba(255,200,120,0.9)";
-    ctx.shadowColor = "#ff9f43";
-    ctx.shadowBlur = 12;
+    ctx.fillStyle = gold ? "rgba(255,224,80,0.95)" : "rgba(255,200,120,0.9)";
+    ctx.shadowColor = gold ? "#ffd166" : "#ff9f43";
+    ctx.shadowBlur = 14;
     ctx.beginPath();
     ctx.arc(0, def.h * 0.28, ember * 0.6, 0, Math.PI * 2);
     ctx.fill();
+    ctx.shadowBlur = 0;
+  } else if (enemy.kind === "speeder") {
+    ctx.rotate(enemy.vx >= 0 ? 0 : Math.PI);
+    ctx.fillStyle = "#0e2b1a";
+    ctx.strokeStyle = def.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(def.w / 2, -2);
+    ctx.lineTo(def.w * 0.2, -def.h / 2);
+    ctx.lineTo(-def.w / 2, 0);
+    ctx.lineTo(def.w * 0.2, def.h / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = def.color;
+    ctx.beginPath();
+    ctx.arc(def.w * 0.16, 0, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(140,255,190,0.9)";
+    ctx.beginPath();
+    ctx.moveTo(-def.w / 2, -1.5);
+    ctx.lineTo(-def.w / 2 - 9, 0);
+    ctx.lineTo(-def.w / 2, 1.5);
+    ctx.closePath();
+    ctx.fill();
+  } else if (enemy.kind === "mine") {
+    const pulse = 1 + Math.sin(time * 6) * 0.08;
+    const radius = (def.w / 2) * 0.5 + 3 * pulse;
+    ctx.strokeStyle = def.color;
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 14;
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.PI / 4) * i + enemy.rot;
+      const ex = Math.cos(a) * (radius * 1.9);
+      const ey = Math.sin(a) * (radius * 1.9);
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * radius * 0.8, Math.sin(a) * radius * 0.8);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.fillStyle = "#ff8bab";
+      ctx.beginPath();
+      ctx.arc(ex, ey, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = "#3d1426";
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.globalAlpha = 0.55 + 0.45 * Math.sin(time * 8 + enemy.rot);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
     ctx.shadowBlur = 0;
   }
 
@@ -436,6 +563,45 @@ export function paintPowerUp(
     ctx.beginPath();
     ctx.arc(7, -9, 2, 0, Math.PI * 2);
     ctx.fill();
+  } else if (pu.kind === "magnet") {
+    ctx.lineCap = "round";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, -1, 5, 0, Math.PI);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(5, -1);
+    ctx.lineTo(5, 6);
+    ctx.moveTo(-5, -1);
+    ctx.lineTo(-5, 6);
+    ctx.stroke();
+    ctx.lineCap = "butt";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(3.4, 3, 3.4, 4);
+    ctx.fillRect(-6.8, 3, 3.4, 4);
+  } else if (pu.kind === "dual") {
+    ctx.lineCap = "round";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-6, 3);
+    ctx.lineTo(-2.5, -4);
+    ctx.lineTo(1, 3);
+    ctx.moveTo(-1, 3);
+    ctx.lineTo(2.5, -4);
+    ctx.lineTo(6, 3);
+    ctx.stroke();
+    ctx.lineCap = "butt";
+  } else if (pu.kind === "freeze") {
+    ctx.lineCap = "round";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      const a = (Math.PI / 3) * i;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * -7, Math.sin(a) * -7);
+      ctx.lineTo(Math.cos(a) * 7, Math.sin(a) * 7);
+      ctx.stroke();
+    }
+    ctx.lineCap = "butt";
   } else {
     ctx.beginPath();
     ctx.moveTo(0, 6);
@@ -453,24 +619,46 @@ export function paintGlint(
 ): void {
   const t = clamp(g.life / g.maxLife, 0, 1);
   const pulse = 0.6 + 0.4 * Math.sin(time * 5 + g.rot);
+  const magnet = !!g.magnet;
+  const color = magnet ? "#7bff8e" : g.gold ? "#ffd166" : "#9df4ff";
+  const glow = magnet ? "#5aff8c" : g.gold ? "#ffcf3f" : "#8df0ff";
   ctx.save();
   ctx.translate(g.x, g.y);
   ctx.rotate(g.rot);
   ctx.scale(pulse * t, pulse * t);
-  ctx.fillStyle = "#9df4ff";
-  ctx.shadowColor = "#8df0ff";
+  ctx.fillStyle = color;
+  ctx.shadowColor = glow;
   ctx.shadowBlur = 14;
-  ctx.beginPath();
-  for (let i = 0; i < 4; i++) {
-    const a = (Math.PI / 2) * i + Math.PI / 4;
-    const px = Math.cos(a) * (g.w / 2);
-    const py = Math.sin(a) * (g.h / 2);
-    ctx.moveTo(0, 0);
-    ctx.lineTo(px * 0.45, py * 0.45);
-    ctx.lineTo(px, py);
-    ctx.lineTo(px * 0.45, py * 0.45);
+  if (magnet) {
+    ctx.lineCap = "round";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(0, -1, g.w * 0.24, 0, Math.PI);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(g.w * 0.24, -1);
+    ctx.lineTo(g.w * 0.24, g.h * 0.34);
+    ctx.moveTo(-g.w * 0.24, -1);
+    ctx.lineTo(-g.w * 0.24, g.h * 0.34);
+    ctx.stroke();
+    ctx.lineCap = "butt";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(g.w * 0.15, g.h * 0.18, g.w * 0.18, g.h * 0.26);
+    ctx.fillRect(-g.w * 0.33, g.h * 0.18, g.w * 0.18, g.h * 0.26);
+  } else {
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const a = (Math.PI / 2) * i + Math.PI / 4;
+      const px = Math.cos(a) * (g.w / 2);
+      const py = Math.sin(a) * (g.h / 2);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(px * 0.45, py * 0.45);
+      ctx.lineTo(px, py);
+      ctx.lineTo(px * 0.45, py * 0.45);
+    }
+    ctx.fill();
   }
-  ctx.fill();
   ctx.shadowBlur = 0;
   ctx.fillStyle = "#ffffff";
   ctx.beginPath();

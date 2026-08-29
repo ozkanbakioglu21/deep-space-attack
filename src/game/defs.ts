@@ -61,6 +61,26 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
     shoot: false,
     shootEvery: 0,
   },
+  speeder: {
+    w: 38,
+    h: 20,
+    hp: 1,
+    speed: 0,
+    score: 150,
+    color: "#7bff8e",
+    shoot: false,
+    shootEvery: 0,
+  },
+  mine: {
+    w: 30,
+    h: 30,
+    hp: 1,
+    speed: 48,
+    score: 90,
+    color: "#ff5d8f",
+    shoot: false,
+    shootEvery: 0,
+  },
 };
 
 export const POWERUP_INFO: Record<PowerKind, { color: string; label: string }> = {
@@ -68,6 +88,9 @@ export const POWERUP_INFO: Record<PowerKind, { color: string; label: string }> =
   rapid: { color: "#ffd166", label: "HIZLI ATEŞ" },
   bomb: { color: "#ff9f43", label: "BOMBA" },
   life: { color: "#ff5d8f", label: "+1 CAN" },
+  magnet: { color: "#7bff8e", label: "MIKNATIS" },
+  dual: { color: "#38e1ff", label: "ÇİFT ATIŞ" },
+  freeze: { color: "#c8a5ff", label: "DONMA" },
 };
 
 export const CHAPTERS: ChapterDef[] = [

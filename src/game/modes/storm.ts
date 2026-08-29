@@ -50,6 +50,7 @@ export class StormMode extends BaseMode {
 
   protected updateSub(dt: number): void {
     this.moveShip(dt);
+    this.spawnThruster("#ffcf8a");
 
     const p = this.player;
     if (p.invincible > 0) p.invincible -= dt;
@@ -69,9 +70,20 @@ export class StormMode extends BaseMode {
       m.x = m.baseX + Math.sin(m.wobble * 2) * 12 * mult;
       if (m.y > this.H + 60) {
         m.alive = false;
-        const bonus = escapeBonus(this.level);
-        this.bumpScore(bonus);
-        this.addPopup(m.x, this.H - 30, `+${bonus}`, "#ffc987", 13);
+        const base = escapeBonus(this.level);
+        const gain = Math.round(base * (m.gold ? 2 : 1) * this.comboMul());
+        this.bumpScore(gain);
+        this.bumpCombo();
+        this.addPopup(
+          m.x,
+          this.H - 30,
+          `+${gain}`,
+          m.gold ? "#ffd166" : "#ffc987",
+          m.gold ? 16 : 13,
+        );
+        this.addHitStop(m.gold ? 0.06 : 0.03);
+        this.vibrate(20);
+        this.shake = Math.min(10, this.shake + (m.gold ? 6 : 3));
       } else if (
         p.invincible <= 0 &&
         this.overlaps(m.x, m.y, m.w, m.h, p.x, p.y, p.w * 0.7, p.h * 0.7)
@@ -79,6 +91,8 @@ export class StormMode extends BaseMode {
         m.alive = false;
         this.explode(m.x, m.y, "#ff9f43", 18, 10, 170);
         this.registerHit();
+      } else {
+        this.applyNearMiss(m, 25, "ÇOK YAKIN!", "#ffe08a");
       }
     }
     this.meteors = this.meteors.filter((m) => m.alive && m.y < this.H + 300);
@@ -94,6 +108,7 @@ export class StormMode extends BaseMode {
       this.waveTimer = 0;
       this.level++;
       this.cbs.onLevel(this.level);
+      this.bumpCombo();
       this.audio.levelUp();
       this.setBanner(`DALGA ${this.level}`);
     }
@@ -149,6 +164,8 @@ export class StormMode extends BaseMode {
       rotSpeed: 0.8 + Math.random() * 1.8,
       flash: 0,
       dive: false,
+      gold: Math.random() < 0.13,
+      nearMissed: false,
     });
   }
 

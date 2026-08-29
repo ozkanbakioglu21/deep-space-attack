@@ -3,9 +3,24 @@ export interface Vec {
   y: number;
 }
 
-export type EnemyKind = "drone" | "fighter" | "tank" | "spinner" | "kamikaze" | "meteor";
+export type EnemyKind =
+  | "drone"
+  | "fighter"
+  | "tank"
+  | "spinner"
+  | "kamikaze"
+  | "meteor"
+  | "speeder"
+  | "mine";
 
-export type PowerKind = "shield" | "rapid" | "bomb" | "life";
+export type PowerKind =
+  | "shield"
+  | "rapid"
+  | "bomb"
+  | "life"
+  | "magnet"
+  | "dual"
+  | "freeze";
 
 export interface BaseEntity {
   id: number;
@@ -29,6 +44,8 @@ export interface Enemy extends BaseEntity {
   rotSpeed: number;
   flash: number;
   dive: boolean;
+  gold?: boolean;
+  nearMissed?: boolean;
 }
 
 export interface Bullet extends BaseEntity {
@@ -81,6 +98,8 @@ export interface Glint {
   life: number;
   maxLife: number;
   alive: boolean;
+  gold?: boolean;
+  magnet?: boolean;
 }
 
 export interface GameOverResult {
