@@ -264,12 +264,13 @@ export class StormMode extends BaseMode {
     const p = this.player;
     for (const r of this.rivals) {
       if (!r.alive) continue;
-      r.turb += (Math.random() - 0.5) * 14 * dt;
-      r.turb = Math.max(-8, Math.min(8, r.turb));
-      r.speed = Math.max(70, r.baseSpeed + (Math.sin(this.time * 0.6 + r.baseSpeed) * 14) + r.turb * 0.2 - (this.lap - 1) * 4);
+      r.turb += (Math.random() - 0.5) * 8 * dt;
+      r.turb = Math.max(-3, Math.min(3, r.turb));
+      r.speed = r.baseSpeed + Math.sin(this.time * 0.5 + r.baseSpeed) * 12 - (this.lap - 1) * 3;
       r.dist += r.speed * dt;
-      r.x += (this.W / 2 + r.targetLane * this.W * 0.28 - r.x) * Math.min(1, dt * 1.4);
-      r.y = this.H * 0.35 + ((r.dist % 60) / 60) * this.H * 0.25;
+      const laneX = this.W / 2 + r.targetLane * this.W * 0.28;
+      r.x += (laneX - r.x) * Math.min(1, dt * 3);
+      r.y = this.H * 0.3 + ((r.dist / 40) % 1) * this.H * 0.18;
 
       // Overtake check: rival overlaps player
       if (!r.passed && r.y >= p.y && this.overlaps(r.x, r.y, 40, 30, p.x, p.y, p.w, p.h)) {
@@ -443,24 +444,74 @@ export class StormMode extends BaseMode {
 
   private drawRival(ctx: CanvasRenderingContext2D, r: Rival): void {
     if (!r.alive) return;
+    const wob = Math.sin(this.time * 5 + r.speed) * 0.03;
     ctx.save();
     ctx.translate(r.x, r.y);
-    ctx.rotate(Math.sin(this.time * 6 + r.speed) * 0.06);
-    ctx.fillStyle = r.color;
+    ctx.rotate(wob);
     ctx.shadowColor = r.color;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 12;
+
+    // rear engine glow
+    ctx.globalAlpha = 0.7 + 0.3 * Math.sin(this.time * 12 + r.speed);
+    ctx.fillStyle = r.color;
     ctx.beginPath();
-    ctx.moveTo(0, -16);
-    ctx.lineTo(12, 10);
-    ctx.lineTo(0, 4);
-    ctx.lineTo(-12, 10);
+    ctx.moveTo(-5, 15);
+    ctx.lineTo(0, 26);
+    ctx.lineTo(5, 15);
     ctx.closePath();
     ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // wings
+    ctx.fillStyle = r.color;
+    ctx.beginPath();
+    ctx.moveTo(-6, 0);
+    ctx.lineTo(-24, 10);
+    ctx.lineTo(-8, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(6, 0);
+    ctx.lineTo(24, 10);
+    ctx.lineTo(8, 6);
+    ctx.closePath();
+    ctx.fill();
+
+    // fuselage
     ctx.shadowBlur = 0;
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.font = "8px system-ui, sans-serif";
+    ctx.fillStyle = "#23273a";
+    ctx.beginPath();
+    ctx.moveTo(0, -20);
+    ctx.lineTo(8, -2);
+    ctx.lineTo(6, 14);
+    ctx.lineTo(-6, 14);
+    ctx.lineTo(-8, -2);
+    ctx.closePath();
+    ctx.fill();
+
+    // cockpit canopy
+    ctx.fillStyle = "#9be8ff";
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(0, -16);
+    ctx.lineTo(4, -6);
+    ctx.lineTo(-4, -6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // wingtip lights
+    ctx.fillStyle = r.color;
+    ctx.fillRect(-24, 8, 3, 3);
+    ctx.fillRect(21, 8, 3, 3);
+
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.font = "bold 8px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(r.name, 0, 26);
+    ctx.fillText(r.name, r.x, r.y + 34);
     ctx.restore();
   }
 
