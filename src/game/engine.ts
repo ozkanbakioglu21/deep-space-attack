@@ -141,6 +141,7 @@ export class Game {
   private high = 0;
   private time = 0;
   private spawnTimer = BASE_SPAWN_INTERVAL;
+  private lifeTimer = 14;
   private nextId = 1;
   private shake = 0;
   private flash = 0;
@@ -188,6 +189,7 @@ export class Game {
     this.high = loadHighScore();
     this.time = 0;
     this.spawnTimer = BASE_SPAWN_INTERVAL * 0.5;
+    this.lifeTimer = 14;
     this.combo = 0;
     this.comboTimer = 0;
     this.lastMult = 1;
@@ -442,12 +444,12 @@ export class Game {
   }
 
   private eventPool(level: number): LevelEventKind[] {
-    const pool: LevelEventKind[] =
-      level === 1 ? ["droneSpiral"] : ["droneSpiral", "fighterWing"];
-    if (level >= 3) pool.push("spinnerFan");
-    if (level >= 4) pool.push("kamikazeSweep");
-    if (level >= 5) pool.push("tankSiege");
-    if (this.chapterFor(level) >= 2) pool.push("meteorShower");
+    // Levels 1–10: only meteors.
+    if (level <= 10) return ["meteorShower"];
+    const pool: LevelEventKind[] = ["meteorShower", "droneSpiral", "fighterWing"];
+    if (level >= 13) pool.push("spinnerFan");
+    if (level >= 14) pool.push("kamikazeSweep");
+    if (level >= 15) pool.push("tankSiege");
     return pool;
   }
 
@@ -870,13 +872,21 @@ export class Game {
   }
 
   private updateEnemies(dt: number): void {
+    // Occasional life pickup drifting down the road when lives are short of max
+    if (this.playing && this.lives < MAX_LIVES && this.powerups.length < MAX_POWERUPS) {
+      this.lifeTimer -= dt;
+      if (this.lifeTimer <= 0) {
+        this.lifeTimer = 15 + Math.random() * 10;
+        this.spawnPowerUp("life", this.W / 2 + (Math.random() - 0.5) * this.W * 0.6, -20);
+      }
+    }
     if (this.playing && this.enemies.length < MAX_ENEMIES) {
       this.spawnTimer -= dt;
       if (this.spawnTimer <= 0) {
         this.spawnTimer =
           Math.max(0.3, BASE_SPAWN_INTERVAL - (this.level - 1) * 0.08) *
           (0.75 + Math.random() * 0.5);
-        if (Math.random() < 0.3 && this.level >= 2) this.spawnDroneLine();
+        if (Math.random() < 0.3 && this.level >= 11) this.spawnDroneLine();
         else this.spawnEnemy();
       }
     }
@@ -1068,15 +1078,19 @@ export class Game {
 
   private pickKind(): EnemyKind {
     const lvl = this.level;
+    // Levels 1–10: only meteors. From level 11 onward, spacecraft return.
+    if (lvl <= 10) return "meteor";
+
+    const rel = lvl - 10; // level 11 -> 1, 12 -> 2, ...
     const cap = (base: number, per: number, max: number) =>
-      Math.min(max, base + lvl * per);
-    const fw = cap(0.08, 0.025, 0.26);
-    const tw = cap(0.02, 0.02, 0.18);
-    const sw = lvl >= 3 ? cap(0.04, 0.015, 0.14) : 0;
-    const kw = lvl >= 4 ? cap(0.03, 0.015, 0.13) : 0;
-    const spw = lvl >= 2 ? cap(0.06, 0.012, 0.12) : 0;
-    const miw = lvl >= 2 ? cap(0.04, 0.01, 0.1) : 0;
-    const mw = this.chapterFor(lvl) >= 2 ? cap(0.12, 0.008, 0.15) : 0;
+      Math.min(max, base + rel * per);
+    const fw = cap(0.1, 0.04, 0.3);
+    const tw = cap(0.05, 0.02, 0.2);
+    const sw = cap(0.05, 0.02, 0.16);
+    const kw = cap(0.04, 0.02, 0.14);
+    const spw = cap(0.05, 0.015, 0.14);
+    const miw = cap(0.05, 0.015, 0.12);
+    const mw = 0.35;
     let roll = Math.random();
     if (roll < mw) return "meteor";
     roll -= mw;
