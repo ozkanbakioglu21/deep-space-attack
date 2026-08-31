@@ -44,6 +44,7 @@ export interface Enemy extends BaseEntity {
   rotSpeed: number;
   flash: number;
   dive: boolean;
+  lane?: number;
   gold?: boolean;
   nearMissed?: boolean;
 }

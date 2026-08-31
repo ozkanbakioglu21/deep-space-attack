@@ -1,32 +1,25 @@
 import { ENEMY_DEFS } from "../defs";
-import { PLAYER_SPEED } from "../constants";
 import { paintEnemy, paintPlayer } from "../painter";
 import type { ChapterDef, Enemy, GameCallbacks } from "../types";
 import { BaseMode } from "./base";
 
-const SPEED_BASE = 80;
-const SPEED_MAX = 165;
-const SPEED_DECAY = 16;
-const LAP_DIST = 400;
-const GATE_BOOST = 10;
-const ORB_BOOST = 6;
-const GOLD_ORB_BOOST = 14;
-const NEAR_MISS_BOOST = 4;
+const SPEED_BASE = 90;
+const SPEED_MAX = 175;
+const SPEED_DECAY = 14;
+const LAP_DIST = 350;
 const NITRO_MAX = 100;
+const PLAYER_Y = 0.82; // fraction down the screen
 
 interface Gate {
-  x: number;
+  lane: number;
   y: number;
-  w: number;
-  h: number;
   alive: boolean;
+  gold: boolean;
 }
 
 interface Orb {
-  x: number;
+  lane: number;
   y: number;
-  w: number;
-  h: number;
   alive: boolean;
   gold: boolean;
   phase: number;
@@ -34,22 +27,20 @@ interface Orb {
 
 interface Rival {
   name: string;
-  x: number;
-  y: number;
+  color: string;
+  lane: number;
+  offset: number;
   dist: number;
   speed: number;
   baseSpeed: number;
-  targetLane: number;
-  turb: number;
-  alive: boolean;
   passed: boolean;
-  color: string;
+  y: number;
 }
 
-const RIVALS: { name: string; color: string; baseSpeed: number }[] = [
-  { name: "KYRA", color: "#ff5d8f", baseSpeed: 95 },
-  { name: "VEX", color: "#ffab3c", baseSpeed: 102 },
-  { name: "ZORB", color: "#7cff5d", baseSpeed: 108 },
+const RIVALS: { name: string; color: string; baseSpeed: number; lane: number }[] = [
+  { name: "KYRA", color: "#ff5d8f", baseSpeed: 100, lane: 0 },
+  { name: "VEX", color: "#ffab3c", baseSpeed: 106, lane: 1 },
+  { name: "ZORB", color: "#7cff5d", baseSpeed: 112, lane: 2 },
 ];
 
 export class StormMode extends BaseMode {
@@ -60,7 +51,7 @@ export class StormMode extends BaseMode {
   private nextId = 1;
   private spawnTimer = 0.8;
   private gateTimer = 1;
-  private orbTimer = 0.2;
+  private orbTimer = 0.15;
   private distTick = 0;
   private distance = 0;
   private lap = 1;
@@ -68,7 +59,9 @@ export class StormMode extends BaseMode {
   private nitro = 0;
   private boosting = false;
   private boostTimer = 0;
-  private pos = 1; // 1-based rank
+  private pos = 1;
+  private lanes = 3;
+  private laneIdx = 1; // start middle
 
   protected get palette(): ChapterDef {
     return {
@@ -77,11 +70,11 @@ export class StormMode extends BaseMode {
       mid: "#180b04",
       bottom: "#060301",
       star: "#ffd9a8",
-      starSpeed: 1.9,
+      starSpeed: 2.2,
       nebulas: [{ x: 0.2, y: 0.7, r: 0.6, color: "rgba(255,120,50,0.08)" }],
-      rocks: 5,
+      rocks: 6,
       rockColor: "#7a4630",
-      rockSpeed: 130,
+      rockSpeed: 160,
     };
   }
 
@@ -97,7 +90,7 @@ export class StormMode extends BaseMode {
     this.orbs = [];
     this.spawnTimer = 0.8;
     this.gateTimer = 1;
-    this.orbTimer = 0.2;
+    this.orbTimer = 0.15;
     this.distTick = 0;
     this.distance = 0;
     this.lap = 1;
@@ -106,20 +99,19 @@ export class StormMode extends BaseMode {
     this.boosting = false;
     this.boostTimer = 0;
     this.pos = 1;
+    this.laneIdx = 1;
     this.rivals = RIVALS.map((r) => ({
       name: r.name,
       color: r.color,
-      baseSpeed: r.baseSpeed,
+      lane: r.lane,
+      offset: (r.baseSpeed - SPEED_BASE) * 2,
+      dist: r.baseSpeed * 3,
       speed: r.baseSpeed,
-      dist: r.baseSpeed * 0.6,
-      targetLane: 0,
-      x: 40 + Math.random() * (this.W - 80),
-      y: -20,
-      turb: 0,
-      alive: true,
+      baseSpeed: r.baseSpeed,
       passed: false,
-    })).map((r, i) => ({ ...r, targetLane: (i - 1) * 0.8 }));
-    this.setBanner("YARIŞ BAŞLADI!", `RAKİPLER SENİ BEKLİYOR`);
+      y: -30,
+    }));
+    this.setBanner("YARIŞ BAŞLADI!", "3 ŞERİTTE RAKİPLERİ GEÇ");
   }
 
   protected resetIdle(): void {
@@ -128,16 +120,17 @@ export class StormMode extends BaseMode {
     this.orbs = [];
     this.rivals = [];
     this.player = this.makePlayer();
+    this.player.y = this.H * PLAYER_Y;
   }
 
   protected updateSub(dt: number): void {
-    this.moveShip(dt);
+    this.updateLane(dt);
     this.spawnThruster(this.boosting ? "#7cf9ff" : "#ffcf8a");
 
     const p = this.player;
     if (p.invincible > 0) p.invincible -= dt;
 
-    // Nitro boost handling
+    // Nitro boost
     if (this.boosting && this.boostTimer > 0) {
       this.boostTimer -= dt;
       if (this.boostTimer <= 0) this.boosting = false;
@@ -150,7 +143,6 @@ export class StormMode extends BaseMode {
     const ratio = this.speed / SPEED_BASE;
     this.distance += this.speed * dt;
 
-    // Rival movement & rank
     this.updateRivals(dt);
     this.distTick += dt;
     if (this.distTick >= 0.25) {
@@ -173,22 +165,43 @@ export class StormMode extends BaseMode {
 
     this.gateTimer -= dt;
     if (this.gateTimer <= 0) {
-      this.gateTimer = 1.2 - Math.min(0.75, (this.lap - 1) * 0.07);
+      this.gateTimer = (1.35 - Math.min(0.75, (this.lap - 1) * 0.08)) * (0.7 + Math.random() * 0.5);
       this.spawnGate();
     }
+    this.updateGates(dt, ratio);
+
+    this.orbTimer -= dt;
+    if (this.orbTimer <= 0) {
+      this.orbTimer = 1.6;
+      this.spawnOrb();
+    }
+    this.updateOrbs(dt, ratio);
+
+    const inter = Math.max(0.5, 1.35 - (this.lap - 1) * 0.07);
+    this.spawnTimer -= dt;
+    if (this.spawnTimer <= 0) {
+      this.spawnTimer = inter * (0.6 + Math.random() * 0.7);
+      this.pushMeteor(ratio);
+    }
+    this.updateMeteors(dt);
+  }
+
+  private updateGates(dt: number, ratio: number): void {
+    const p = this.player;
+    const laneXs = this.laneXs();
     for (const g of this.gates) {
-      g.y += 150 * ratio * dt;
-      if (g.y > this.H + 40) {
+      g.y += 170 * ratio * dt;
+      const centerX = laneXs[g.lane];
+      if (g.y > this.H + 60) {
         g.alive = false;
-      } else if (
-        this.overlaps(g.x, g.y, g.w, g.h, p.x, p.y, p.w * 1.15, p.h * 1.15)
-      ) {
+      } else if (this.overlaps(centerX, g.y, 26, 30, p.x, p.y, p.w, p.h)) {
         g.alive = false;
-        this.nitro = Math.min(NITRO_MAX, this.nitro + 40);
-        const boost = GATE_BOOST + this.lap;
+        this.nitro = Math.min(NITRO_MAX, this.nitro + (g.gold ? 60 : 40));
+        const boost = g.gold ? 18 : 10;
         this.speed = Math.min(SPEED_MAX, this.speed + boost);
-        this.addPopup(g.x, g.y - 18, `NİTRO +40`, "#9be8ff", 15);
-        this.explode(g.x, g.y, "#9be8ff", 10, 4, 90);
+        this.bumpScore(g.gold ? 250 : 0);
+        this.addPopup(centerX, g.y - 18, g.gold ? `ALTIN HALKAYA! +${boost}` : `NİTRO +40`, g.gold ? "#ffd166" : "#9be8ff", g.gold ? 16 : 14);
+        this.explode(centerX, g.y, g.gold ? "#ffd166" : "#9be8ff", 12, 4, 100);
         this.audio.powerup();
         this.addHitStop(0.025);
         this.vibrate(12);
@@ -197,65 +210,55 @@ export class StormMode extends BaseMode {
       }
     }
     this.gates = this.gates.filter((g) => g.alive);
+  }
 
-    this.orbTimer -= dt;
-    if (this.orbTimer <= 0) {
-      this.orbTimer = 1.4;
-      this.spawnOrb();
-    }
+  private updateOrbs(dt: number, ratio: number): void {
+    const p = this.player;
+    const laneXs = this.laneXs();
     for (const o of this.orbs) {
       o.phase += 3 * dt;
       o.y += 155 * ratio * dt;
+      const centerX = laneXs[o.lane];
       if (o.y > this.H + 30) {
         o.alive = false;
-      } else if (
-        this.overlaps(o.x, o.y, o.w, o.h, p.x, p.y, p.w, p.h)
-      ) {
+      } else if (this.overlaps(centerX, o.y, o.gold ? 22 : 16, o.gold ? 22 : 16, p.x, p.y, p.w, p.h)) {
         o.alive = false;
-        const boost = o.gold ? GOLD_ORB_BOOST : ORB_BOOST;
-        this.nitro = Math.min(NITRO_MAX, this.nitro + (o.gold ? 30 : 12));
-        this.speed = Math.min(SPEED_MAX, this.speed + boost);
+        this.nitro = Math.min(NITRO_MAX, this.nitro + (o.gold ? 30 : 14));
         this.bumpScore(o.gold ? 150 : 40);
-        this.addPopup(o.x, o.y, o.gold ? `ALTIN +${boost} HIZ` : `+${boost}`, o.gold ? "#ffd166" : "#8dffb0", o.gold ? 16 : 13);
-        this.explode(o.x, o.y, o.gold ? "#ffd166" : "#8dffb0", 8, 4, 80);
+        this.addPopup(centerX, o.y, o.gold ? `ALTIN +NİTRO` : `+40`, o.gold ? "#ffd166" : "#8dffb0", o.gold ? 16 : 13);
+        this.explode(centerX, o.y, o.gold ? "#ffd166" : "#8dffb0", 8, 4, 80);
         this.audio.powerup();
         this.vibrate(o.gold ? 18 : 10);
         this.bumpCombo();
       }
     }
     this.orbs = this.orbs.filter((o) => o.alive);
+  }
 
-    const inter = Math.max(0.34, 1.05 - (this.lap - 1) * 0.06);
-    this.spawnTimer -= dt;
-    if (this.spawnTimer <= 0) {
-      this.spawnTimer = inter * (0.7 + Math.random() * 0.6);
-      this.pushMeteor(ratio);
-    }
-
+  private updateMeteors(dt: number): void {
+    const p = this.player;
+    const laneXs = this.laneXs();
     const mult = 1 + (this.lap - 1) * 0.1;
     for (const m of this.meteors) {
       m.rot += m.rotSpeed * dt;
       m.y += m.vy * dt;
       m.wobble += m.wobbleSpeed * dt;
-      m.x = m.baseX + Math.sin(m.wobble * 2) * 12 * mult;
+      m.x = laneXs[m.lane ?? 1] + Math.sin(m.wobble * 2) * 8 * mult;
       if (m.y > this.H + 60) {
         m.alive = false;
-        const boost = m.gold ? 16 : 4;
+        const boost = m.gold ? 14 : 4;
         this.speed = Math.min(SPEED_MAX, this.speed + boost);
-        this.addPopup(m.x, this.H - 30, m.gold ? `ALTIN +${boost} HIZ` : `RÜZGAR +${boost}`, m.gold ? "#ffd166" : "#ffc987", m.gold ? 16 : 13);
+        this.addPopup(m.x, this.H - 30, m.gold ? `ALTIN RÜZGAR +${boost}` : `RÜZGAR +${boost}`, m.gold ? "#ffd166" : "#ffc987", m.gold ? 15 : 12);
         this.bumpCombo();
-        this.addHitStop(m.gold ? 0.05 : 0.02);
-        this.vibrate(m.gold ? 26 : 12);
+        this.vibrate(m.gold ? 20 : 10);
       } else if (
         p.invincible <= 0 &&
         this.overlaps(m.x, m.y, m.w, m.h, p.x, p.y, p.w * 0.7, p.h * 0.7)
       ) {
         m.alive = false;
         this.explode(m.x, m.y, "#ff9f43", 18, 10, 170);
-        this.speed = Math.max(SPEED_BASE, this.speed - 24);
+        this.speed = Math.max(SPEED_BASE, this.speed - 22);
         this.registerHit();
-      } else if (this.applyNearMiss(m, 25, "ÇOK YAKIN!", "#ffe08a")) {
-        this.speed = Math.min(SPEED_MAX, this.speed + NEAR_MISS_BOOST);
       }
     }
     this.meteors = this.meteors.filter((m) => m.alive && m.y < this.H + 300);
@@ -263,77 +266,93 @@ export class StormMode extends BaseMode {
 
   private updateRivals(dt: number): void {
     const p = this.player;
+    const laneXs = this.laneXs();
     for (const r of this.rivals) {
-      if (!r.alive) continue;
-      r.turb += (Math.random() - 0.5) * 8 * dt;
-      r.turb = Math.max(-3, Math.min(3, r.turb));
-      r.speed = r.baseSpeed + Math.sin(this.time * 0.5 + r.baseSpeed) * 12 - (this.lap - 1) * 3;
+      r.speed = r.baseSpeed - (this.lap - 1) * 3;
       r.dist += r.speed * dt;
-      const laneX = this.W / 2 + r.targetLane * this.W * 0.28;
-      r.x += (laneX - r.x) * Math.min(1, dt * 3);
-      r.y = this.H * 0.3 + ((r.dist / 40) % 1) * this.H * 0.18;
-
-      // Near-lane draft: racing close to a rival yields nitro + small spark
-      if (
-        r.dist > this.distance &&
-        r.dist - this.distance < 40 &&
-        Math.abs(r.x - p.x) < 46
-      ) {
-        this.nitro = Math.min(NITRO_MAX, this.nitro + 18 * dt);
-        if (Math.random() < 0.5) {
-          this.explode(p.x + (r.x > p.x ? 1 : -1) * 8, p.y - 10, "#7cf9ff", 2, 3, 50);
-        }
-      }
-
-      // Overtake check: rival overlaps player
-      if (!r.passed && r.y >= p.y && this.overlaps(r.x, r.y, 40, 30, p.x, p.y, p.w, p.h)) {
+      // Rivals drive ahead of player; show them if not overtaken yet
+      r.y = p.y - (r.dist - this.distance) * 1.3;
+      // passed when their screen y crosses the player's fixed y
+      if (!r.passed && r.y >= p.y) {
         r.passed = true;
         this.bumpScore(300);
         this.nitro = Math.min(NITRO_MAX, this.nitro + 30);
         this.bumpCombo();
-        this.addPopup(r.x, r.y - 20, `GEÇİLDİ +300`, "#3dffa0", 16);
+        this.addPopup(laneXs[r.lane], p.y - 20, `GEÇİLDİ +300`, "#3dffa0", 16);
         this.vibrate(20);
         this.flash = Math.max(this.flash, 0.2);
       }
+      // Draft: rival just ahead in the lane directly in front
+      if (!r.passed && Math.abs(r.dist - this.distance) < 30 && Math.abs(r.y - p.y) < 20) {
+        this.nitro = Math.min(NITRO_MAX, this.nitro + 22 * dt);
+      }
     }
-    // Rank by distance among all racers
-    interface RankEntry { dist: number; player?: boolean }
-    const rank: RankEntry[] = [{ dist: this.distance, player: true }];
+    const rank: { dist: number; player?: boolean }[] = [{ dist: this.distance, player: true }];
     for (const r of this.rivals) rank.push({ dist: r.dist });
     rank.sort((a, b) => b.dist - a.dist);
     this.pos = rank.findIndex((x) => x.player) + 1;
     if (this.pos < 1) this.pos = 1;
   }
 
-  private moveShip(dt: number): void {
-    const p = this.player;
-    const prevX = p.x;
-    const speed = PLAYER_SPEED * 1.0;
-    let dx = 0;
-    let dy = 0;
-    if (this.hasPointer) {
-      dx = this.pointerX - p.x;
-      dy = this.pointerY - p.y;
-    } else {
-      if (this.keys.has("arrowleft") || this.keys.has("a")) dx = -1;
-      if (this.keys.has("arrowright") || this.keys.has("d")) dx = 1;
-      if (this.keys.has("arrowup") || this.keys.has("w")) dy = -1;
-      if (this.keys.has("arrowdown") || this.keys.has("s")) dy = 1;
+  // ---- Lane input: swipe / arrows to change lane ----
+
+  private updateLane(dt: number): void {
+    if (this.keys.has("arrowleft") || this.keys.has("a")) {
+      this.requestLane(this.laneIdx - 1);
     }
-    const mag = Math.hypot(dx, dy);
-    if (mag > 2) {
-      p.x += (dx / mag) * speed * dt;
-      p.y += (dy / mag) * speed * dt;
+    if (this.keys.has("arrowright") || this.keys.has("d")) {
+      this.requestLane(this.laneIdx + 1);
     }
-    p.x = clamp(p.x, p.w / 2, this.W - p.w / 2);
-    p.y = clamp(p.y, 40, this.H - 30);
-    p.vx = dt > 0 ? (p.x - prevX) / dt : 0;
-    const targetTilt = clamp((p.vx / PLAYER_SPEED) * 0.5, -0.5, 0.5);
-    p.tilt += (targetTilt - p.tilt) * Math.min(1, dt * 10);
+    if (this.pointerLaneTarget !== null && this.pointerLaneTarget !== this.laneIdx) {
+      this.laneIdx = this.pointerLaneTarget;
+      this.pointerLaneTarget = null;
+    }
+    const targetX = this.lanePos(this.laneIdx);
+    this.player.x += (targetX - this.player.x) * Math.min(1, dt * 14);
+    const tilt = clamp((this.player.x - targetX) * 0.01, -0.4, 0.4);
+    this.player.tilt += (tilt - this.player.tilt) * Math.min(1, dt * 12);
+  }
+
+  private requestLane(idx: number): void {
+    this.laneIdx = clamp(idx, 0, this.lanes - 1);
+  }
+
+  private pointerLaneTarget: number | null = null;
+  private swipeStartX = 0;
+  private swipeActive = false;
+
+  protected onPointerDownHook(): void {
+    this.swipeStartX = this.pointerX;
+    this.swipeActive = true;
+    this.pointerLaneTarget = null;
+  }
+
+  // Hook called on pointer move while down
+  protected onPointerMoveHook(): void {
+    if (!this.swipeActive) return;
+    const dx = this.pointerX - this.swipeStartX;
+    if (dx < -24) {
+      this.pointerLaneTarget = clamp(this.laneIdx - 1, 0, this.lanes - 1);
+    } else if (dx > 24) {
+      this.pointerLaneTarget = clamp(this.laneIdx + 1, 0, this.lanes - 1);
+    }
+  }
+
+  protected onPointerUpHook(): void {
+    this.swipeActive = false;
+    this.tryBoost();
+  }
+
+  private lanePos(idx: number): number {
+    return this.W / 2 + (idx - 1) * this.W * 0.28;
+  }
+
+  private laneXs(): number[] {
+    return [0, 1, 2].map((i) => this.lanePos(i));
   }
 
   private tryBoost(): void {
-    if (this.nitro >= 25 && !this.boosting) {
+    if (this.nitro >= 25 && !this.boosting && !this.swipeActive) {
       this.boosting = true;
       this.boostTimer = 0.8;
       this.nitro -= 25;
@@ -344,47 +363,34 @@ export class StormMode extends BaseMode {
   }
 
   private spawnGate(): void {
-    const size = 34;
-    const side = Math.random() < 0.5 ? -1 : 1;
-    this.gates.push({
-      x: clamp(this.W / 2 + side * (40 + Math.random() * this.W * 0.3), size / 2, this.W - size / 2),
-      y: -size - 24,
-      w: size,
-      h: size * 0.7,
-      alive: true,
-    });
+    const lane = Math.floor(Math.random() * this.lanes);
+    const gold = Math.random() < 0.16;
+    this.gates.push({ lane, y: -40, alive: true, gold });
   }
 
   private spawnOrb(): void {
     const gold = Math.random() < 0.14;
-    const size = gold ? 20 : 14;
-    this.orbs.push({
-      x: clamp(size / 2 + Math.random() * (this.W - size), size / 2, this.W - size / 2),
-      y: -size - 10,
-      w: size,
-      h: size,
-      alive: true,
-      gold,
-      phase: Math.random() * Math.PI * 2,
-    });
+    this.orbs.push({ lane: Math.floor(Math.random() * this.lanes), y: -20, alive: true, gold, phase: Math.random() * Math.PI * 2 });
   }
 
   private pushMeteor(ratio: number): void {
+    const lane = Math.floor(Math.random() * this.lanes);
+    const laneX = this.lanePos(lane);
     const def = ENEMY_DEFS.meteor;
     const mult = 1 + (this.lap - 1) * 0.1;
-    const x = def.w / 2 + Math.random() * Math.max(0, this.W - def.w);
     this.meteors.push({
       id: this.nextId++,
       kind: "meteor",
-      x,
+      x: laneX,
       y: -def.h - 10,
       w: def.w,
       h: def.h,
       vx: 0,
-      vy: def.speed * mult * (0.8 + Math.random() * 0.5) * ratio * 1.4,
+      vy: def.speed * mult * (0.8 + Math.random() * 0.45) * ratio * 1.5,
       alive: true,
       hp: ENEMY_DEFS.meteor.hp,
-      baseX: x,
+      baseX: laneX,
+      lane,
       wobble: Math.random() * Math.PI * 2,
       wobbleSpeed: 0.5 + Math.random() * 1.4,
       shootTimer: 9,
@@ -418,32 +424,39 @@ export class StormMode extends BaseMode {
     }
     for (const g of this.gates) this.drawGate(ctx, g);
     for (const o of this.orbs) this.drawOrb(ctx, o);
-    for (const r of this.rivals) this.drawRival(ctx, r);
     for (const m of this.meteors) paintEnemy(ctx, m, this.time);
+    for (const r of this.rivals) this.drawRival(ctx, r);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time);
     this.drawHud(ctx);
   }
 
   private drawTrack(ctx: CanvasRenderingContext2D): void {
     const ratio = this.speed / SPEED_BASE;
-    const dash = 40 * ratio * (this.boosting ? 1.8 : 1);
+    const dash = 44 * ratio * (this.boosting ? 1.8 : 1);
     ctx.save();
-    ctx.globalAlpha = 0.16;
+    ctx.globalAlpha = 0.18;
     ctx.strokeStyle = "#ffc987";
     ctx.lineWidth = 2;
-    for (let lane = 0; lane < 4; lane++) {
-      const x = this.W * 0.5 + (lane - 1.5) * this.W * 0.26;
+    for (let i = 0; i < 4; i++) {
+      const x = this.W / 2 + (i - 1.5) * this.W * 0.28;
       ctx.setLineDash([dash, 46]);
-      ctx.lineDashOffset = -this.time * 300 * ratio;
+      ctx.lineDashOffset = -this.time * 320 * ratio;
       ctx.beginPath();
       ctx.moveTo(x, -20);
       ctx.lineTo(x, this.H + 20);
       ctx.stroke();
     }
     ctx.setLineDash([]);
+
+    // Active lane highlight
+    const laneXs = this.laneXs();
+    const activeX = laneXs[this.laneIdx];
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = "#9be8ff";
+    ctx.fillRect(activeX - this.W * 0.14, 0, this.W * 0.28, this.H);
     ctx.restore();
 
-    // Nitro-ready pulsing ring around player
+    // Nitro-ready pulsing ring
     if (this.nitro >= 25 && this.player.alive) {
       const p = this.player;
       const pulse = 0.5 + 0.5 * Math.sin(this.time * 8);
@@ -461,43 +474,47 @@ export class StormMode extends BaseMode {
   }
 
   private drawGate(ctx: CanvasRenderingContext2D, g: Gate): void {
-    const pulse = 0.65 + 0.35 * Math.sin(this.time * 7 + g.x);
+    const x = this.lanePos(g.lane);
+    const pulse = 0.65 + 0.35 * Math.sin(this.time * 7 + x);
     ctx.save();
-    ctx.translate(g.x, g.y);
+    ctx.translate(x, g.y);
     ctx.globalAlpha = 0.35 + pulse * 0.65;
-    ctx.strokeStyle = "#9be8ff";
+    ctx.strokeStyle = g.gold ? "#ffd166" : "#9be8ff";
     ctx.lineWidth = 3;
-    ctx.shadowColor = "#7cf9ff";
+    ctx.shadowColor = g.gold ? "#ffd166" : "#7cf9ff";
     ctx.shadowBlur = 16;
     for (const k of [-1, 1]) {
       ctx.beginPath();
-      ctx.moveTo(k * g.w * 0.45, -g.h * 0.5);
-      ctx.lineTo(k * g.w * 0.9, 0);
-      ctx.lineTo(k * g.w * 0.45, g.h * 0.5);
+      ctx.moveTo(k * 14, -15);
+      ctx.lineTo(k * 26, 0);
+      ctx.lineTo(k * 14, 15);
       ctx.stroke();
     }
     ctx.restore();
   }
 
   private drawOrb(ctx: CanvasRenderingContext2D, o: Orb): void {
+    const x = this.lanePos(o.lane);
     const pulse = 0.7 + 0.3 * Math.sin(o.phase);
     ctx.save();
-    ctx.translate(o.x, o.y);
+    ctx.translate(x, o.y);
     ctx.globalAlpha = 0.5 + pulse * 0.5;
     ctx.fillStyle = o.gold ? "#ffd166" : "#8dffb0";
     ctx.shadowColor = o.gold ? "#ffd166" : "#8dffb0";
     ctx.shadowBlur = 12;
     ctx.beginPath();
-    ctx.arc(0, 0, o.w / 2 * (0.8 + pulse * 0.4), 0, Math.PI * 2);
+    ctx.arc(0, 0, (o.gold ? 11 : 8) * (0.8 + pulse * 0.4), 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
   private drawRival(ctx: CanvasRenderingContext2D, r: Rival): void {
-    if (!r.alive) return;
+    const x = this.lanePos(r.lane);
+    const y = r.y;
+    if (y < -60 || y > this.H + 60) return;
     const wob = Math.sin(this.time * 5 + r.speed) * 0.03;
     ctx.save();
-    ctx.translate(r.x, r.y);
+    ctx.translate(x, y);
     ctx.rotate(wob);
     ctx.shadowColor = r.color;
     ctx.shadowBlur = 12;
@@ -562,12 +579,11 @@ export class StormMode extends BaseMode {
     ctx.fillStyle = "rgba(0,0,0,0.55)";
     ctx.font = "bold 8px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(r.name, r.x, r.y + 34);
+    ctx.fillText(r.name, x, y + 34);
     ctx.restore();
   }
 
   private drawHud(ctx: CanvasRenderingContext2D): void {
-    // Nitro bar
     const bw = this.W - 24;
     const bx = 12;
     const by = 12;
@@ -587,28 +603,21 @@ export class StormMode extends BaseMode {
     ctx.textAlign = "left";
     ctx.fillText(ready ? "NİTRO HAZIR" : "NİTRO", bx, by - 5);
 
-    // Speed
     ctx.fillStyle = "#fff";
     ctx.font = "bold 13px system-ui, sans-serif";
     ctx.textAlign = "right";
     ctx.fillText(`${Math.round(this.speed)} h`, this.W - 14, 20);
 
-    // Rank
     const rankLabel = ["1.", "2.", "3.", "4."][Math.min(this.pos - 1, 3)];
     ctx.fillStyle = this.pos === 1 ? "#ffd166" : "#fff";
     ctx.font = "bold 16px system-ui, sans-serif";
     ctx.textAlign = "left";
     ctx.fillText(`${rankLabel}`, bx, 40);
 
-    // Lap / distance (upper center under nitro)
     ctx.fillStyle = "rgba(255,255,255,0.9)";
     ctx.font = "bold 11px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(`TÜR ${this.lap}  •  ${Math.round(this.distance)}m`, this.W / 2, 40);
-  }
-
-  protected onPointerDownHook(): void {
-    this.tryBoost();
   }
 }
 

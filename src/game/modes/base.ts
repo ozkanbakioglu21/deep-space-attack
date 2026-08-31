@@ -130,6 +130,8 @@ export abstract class BaseMode implements GameAdapter {
   protected abstract renderEntities(ctx: CanvasRenderingContext2D): void;
   protected resetIdle(): void {}
   protected onPointerDownHook(): void {}
+  protected onPointerMoveHook(): void {}
+  protected onPointerUpHook(): void {}
 
   // ---- Loop ----
 
@@ -457,6 +459,7 @@ export abstract class BaseMode implements GameAdapter {
     if (e.pointerId === this.pointerId) {
       this.pointerX = this.rectX(e.clientX);
       this.pointerY = this.rectY(e.clientY);
+      this.onPointerMoveHook();
     }
   };
 
@@ -464,6 +467,7 @@ export abstract class BaseMode implements GameAdapter {
     if (e.pointerId === this.pointerId) {
       this.pointerId = null;
       this.hasPointer = false;
+      this.onPointerUpHook();
     }
   };
 
