@@ -129,6 +129,7 @@ export abstract class BaseMode implements GameAdapter {
   protected abstract updateSub(dt: number): void;
   protected abstract renderEntities(ctx: CanvasRenderingContext2D): void;
   protected resetIdle(): void {}
+  protected onPointerDownHook(): void {}
 
   // ---- Loop ----
 
@@ -449,6 +450,7 @@ export abstract class BaseMode implements GameAdapter {
     this.pointerX = this.rectX(e.clientX);
     this.pointerY = this.rectY(e.clientY);
     e.preventDefault();
+    this.onPointerDownHook();
   };
 
   private onPointerMove = (e: PointerEvent): void => {

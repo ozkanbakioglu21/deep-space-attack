@@ -22,15 +22,15 @@ export const MODES: ModeMeta[] = [
 {
       id: "storm",
       name: "METEOR YARIŞI",
-      tagline: "Yarış: geçitlerden geçerek hızlan, göktaşlarından sıyrıl ve turları tamamla.",
+      tagline: "Yarış: rakipleri geç, nitro topla, enerji geçitlerinden geç ve bitiş çizgisine ilk sen ulaş.",
       accent: "#ff9f43",
       hud: { showLevel: true, showCombo: true, levelLabel: "Tür", scoreLabel: "Mesafe" },
       controls: [
-        "Bitiş çizgisi yok: ne kadar uzağa (m) gidersen skorun o kadar büyür!",
-        "Enerji geçitlerinden (chevron) geç: hız artar, mesafe katlanır.",
-        "Göktaşlarına çarpma; sıyrılarak kaçırdığın her taş az da olsa hız kazandırır.",
-        "ALTIN göktaşı geçirmek ekstra hız patlaması verir.",
-        "Her 500 m'de bir (TÜR) tamamlarsın: tavan hızın yükselir.",
+        "KYRA, VEX ve ZORB'a karşı yarış: sıralamanı üstte takip et.",
+        "Enerji geçitlerinden geç ve ALTIN kürelerden topla → NİTRO dolur.",
+        "Ekrana tıkla / dokun ya da boşlukla → NİTRO patlat, hız patlaması yaşa.",
+        "Göktaşlarına çarpma; kaçırarak rüzgar kazanırsın.",
+        "Her 400 m'de bir TÜR tamamlarsın: tavan hızın ve zorluk artar.",
       ],
     },
     {
