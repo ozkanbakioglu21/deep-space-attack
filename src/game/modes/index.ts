@@ -27,10 +27,10 @@ export const MODES: ModeMeta[] = [
       hud: { showLevel: true, showCombo: true, levelLabel: "Tür", scoreLabel: "Mesafe" },
       controls: [
         "KYRA, VEX ve ZORB'a karşı yarış: sıralamanı üstte takip et.",
-        "Enerji geçitlerinden geç ve ALTIN kürelerden topla → NİTRO dolur.",
-        "Ekrana tıkla / dokun ya da boşlukla → NİTRO patlat, hız patlaması yaşa.",
-        "Göktaşlarına çarpma; kaçırarak rüzgar kazanırsın.",
-        "Her 400 m'de bir TÜR tamamlarsın: tavan hızın ve zorluk artar.",
+        "Enerji geçitlerinden geç ve ALTIN kürelerden topla → NİTRO dolar.",
+        "Rakibe yaklaş → sürükleme (draft) ile nitro kazan, köprüsünü geçince GEÇİLDİ bonusu.",
+        "Ekrana tıkla / dokun ya da boşlukla → NİTRO patlat, hız + skor katlansın.",
+        "Ne kadar hızlı gidersen mesafe skorun o kadar çarpar. Göktaşlarına çarpma!",
       ],
     },
     {

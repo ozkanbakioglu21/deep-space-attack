@@ -155,7 +155,8 @@ export class StormMode extends BaseMode {
     this.distTick += dt;
     if (this.distTick >= 0.25) {
       this.distTick -= 0.25;
-      this.bumpScore(Math.round(this.distance));
+      const speedMult = 1 + (this.speed - SPEED_BASE) / 60;
+      this.bumpScore(Math.round(this.distance * speedMult));
     }
 
     if (this.distance >= this.lap * LAP_DIST) {
@@ -272,10 +273,23 @@ export class StormMode extends BaseMode {
       r.x += (laneX - r.x) * Math.min(1, dt * 3);
       r.y = this.H * 0.3 + ((r.dist / 40) % 1) * this.H * 0.18;
 
+      // Near-lane draft: racing close to a rival yields nitro + small spark
+      if (
+        r.dist > this.distance &&
+        r.dist - this.distance < 40 &&
+        Math.abs(r.x - p.x) < 46
+      ) {
+        this.nitro = Math.min(NITRO_MAX, this.nitro + 18 * dt);
+        if (Math.random() < 0.5) {
+          this.explode(p.x + (r.x > p.x ? 1 : -1) * 8, p.y - 10, "#7cf9ff", 2, 3, 50);
+        }
+      }
+
       // Overtake check: rival overlaps player
       if (!r.passed && r.y >= p.y && this.overlaps(r.x, r.y, 40, 30, p.x, p.y, p.w, p.h)) {
         r.passed = true;
         this.bumpScore(300);
+        this.nitro = Math.min(NITRO_MAX, this.nitro + 30);
         this.bumpCombo();
         this.addPopup(r.x, r.y - 20, `GEÇİLDİ +300`, "#3dffa0", 16);
         this.vibrate(20);
@@ -384,6 +398,7 @@ export class StormMode extends BaseMode {
   }
 
   protected renderEntities(ctx: CanvasRenderingContext2D): void {
+    this.drawTrack(ctx);
     if (this.speed > SPEED_BASE * 1.12 || this.boosting) {
       ctx.save();
       ctx.globalAlpha = this.boosting ? 0.75 : 0.55;
@@ -407,6 +422,42 @@ export class StormMode extends BaseMode {
     for (const m of this.meteors) paintEnemy(ctx, m, this.time);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time);
     this.drawHud(ctx);
+  }
+
+  private drawTrack(ctx: CanvasRenderingContext2D): void {
+    const ratio = this.speed / SPEED_BASE;
+    const dash = 40 * ratio * (this.boosting ? 1.8 : 1);
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.strokeStyle = "#ffc987";
+    ctx.lineWidth = 2;
+    for (let lane = 0; lane < 4; lane++) {
+      const x = this.W * 0.5 + (lane - 1.5) * this.W * 0.26;
+      ctx.setLineDash([dash, 46]);
+      ctx.lineDashOffset = -this.time * 300 * ratio;
+      ctx.beginPath();
+      ctx.moveTo(x, -20);
+      ctx.lineTo(x, this.H + 20);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // Nitro-ready pulsing ring around player
+    if (this.nitro >= 25 && this.player.alive) {
+      const p = this.player;
+      const pulse = 0.5 + 0.5 * Math.sin(this.time * 8);
+      ctx.save();
+      ctx.globalAlpha = 0.25 + pulse * 0.4;
+      ctx.strokeStyle = "#7cf9ff";
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = "#7cf9ff";
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 22 + pulse * 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   private drawGate(ctx: CanvasRenderingContext2D, g: Gate): void {
