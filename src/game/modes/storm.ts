@@ -100,6 +100,8 @@ export class StormMode extends BaseMode {
     this.boostTimer = 0;
     this.pos = 1;
     this.laneIdx = 1;
+    this.leftDown = false;
+    this.rightDown = false;
     this.rivals = RIVALS.map((r) => ({
       name: r.name,
       color: r.color,
@@ -296,13 +298,17 @@ export class StormMode extends BaseMode {
 
   // ---- Lane input: swipe / arrows to change lane ----
 
+  private leftDown = false;
+  private rightDown = false;
+
   private updateLane(dt: number): void {
-    if (this.keys.has("arrowleft") || this.keys.has("a")) {
-      this.requestLane(this.laneIdx - 1);
-    }
-    if (this.keys.has("arrowright") || this.keys.has("d")) {
-      this.requestLane(this.laneIdx + 1);
-    }
+    // Edge-triggered arrow keys: one lane per fresh key press
+    const left = this.keys.has("arrowleft") || this.keys.has("a");
+    const right = this.keys.has("arrowright") || this.keys.has("d");
+    if (left && !this.leftDown) this.requestLane(this.laneIdx - 1);
+    if (right && !this.rightDown) this.requestLane(this.laneIdx + 1);
+    this.leftDown = left;
+    this.rightDown = right;
     if (this.pointerLaneTarget !== null && this.pointerLaneTarget !== this.laneIdx) {
       this.laneIdx = this.pointerLaneTarget;
       this.pointerLaneTarget = null;
