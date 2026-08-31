@@ -309,6 +309,7 @@ export class StormMode extends BaseMode {
     if (right && !this.rightDown) this.requestLane(this.laneIdx + 1);
     this.leftDown = left;
     this.rightDown = right;
+    this.runHold(this.swipeActive, dt);
     if (this.pointerLaneTarget !== null && this.pointerLaneTarget !== this.laneIdx) {
       this.laneIdx = this.pointerLaneTarget;
       this.pointerLaneTarget = null;
@@ -326,27 +327,52 @@ export class StormMode extends BaseMode {
   private pointerLaneTarget: number | null = null;
   private swipeStartX = 0;
   private swipeActive = false;
+  private tapX = 0;
+  private holdTimer = 0;
+  private boostFired = false;
 
   protected onPointerDownHook(): void {
     this.swipeStartX = this.pointerX;
+    this.tapX = this.pointerX;
     this.swipeActive = true;
     this.pointerLaneTarget = null;
+    this.holdTimer = 0;
+    this.boostFired = false;
   }
 
   // Hook called on pointer move while down
   protected onPointerMoveHook(): void {
     if (!this.swipeActive) return;
+    // A real swipe cancels tap/hold behaviors
     const dx = this.pointerX - this.swipeStartX;
-    if (dx < -24) {
-      this.pointerLaneTarget = clamp(this.laneIdx - 1, 0, this.lanes - 1);
-    } else if (dx > 24) {
-      this.pointerLaneTarget = clamp(this.laneIdx + 1, 0, this.lanes - 1);
+    if (Math.abs(dx) > 24) {
+      this.tapX = -1;
+      if (dx < -24) {
+        this.pointerLaneTarget = clamp(this.laneIdx - 1, 0, this.lanes - 1);
+      } else if (dx > 24) {
+        this.pointerLaneTarget = clamp(this.laneIdx + 1, 0, this.lanes - 1);
+      }
     }
   }
 
   protected onPointerUpHook(): void {
     this.swipeActive = false;
-    this.tryBoost();
+    // Plain tap: change one lane toward the tapped half of the screen.
+    if (!this.boostFired && this.pointerLaneTarget === null && this.tapX >= 0) {
+      if (this.tapX < this.W / 2) this.requestLane(this.laneIdx - 1);
+      else this.requestLane(this.laneIdx + 1);
+    }
+  }
+
+  // Long-press (no swipe) fires NİTRO boost — called each frame while holding.
+  private runHold(inputDown: boolean, dt: number): void {
+    if (inputDown && this.tapX >= 0 && !this.boostFired) {
+      this.holdTimer += dt;
+      if (this.holdTimer >= 0.35) {
+        this.boostFired = true;
+        this.tryBoost();
+      }
+    }
   }
 
   private lanePos(idx: number): number {
@@ -358,7 +384,7 @@ export class StormMode extends BaseMode {
   }
 
   private tryBoost(): void {
-    if (this.nitro >= 25 && !this.boosting && !this.swipeActive) {
+    if (this.nitro >= 25 && !this.boosting) {
       this.boosting = true;
       this.boostTimer = 0.8;
       this.nitro -= 25;
