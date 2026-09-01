@@ -327,6 +327,7 @@ export class StormMode extends BaseMode {
   private pointerLaneTarget: number | null = null;
   private swipeStartX = 0;
   private swipeActive = false;
+  private swipeDone = false;
   private tapX = 0;
   private holdTimer = 0;
   private boostFired = false;
@@ -335,6 +336,7 @@ export class StormMode extends BaseMode {
     this.swipeStartX = this.pointerX;
     this.tapX = this.pointerX;
     this.swipeActive = true;
+    this.swipeDone = false;
     this.pointerLaneTarget = null;
     this.holdTimer = 0;
     this.boostFired = false;
@@ -342,16 +344,17 @@ export class StormMode extends BaseMode {
 
   // Hook called on pointer move while down
   protected onPointerMoveHook(): void {
-    if (!this.swipeActive) return;
-    // A real swipe cancels tap/hold behaviors
+    if (!this.swipeActive || this.swipeDone) return;
     const dx = this.pointerX - this.swipeStartX;
-    if (Math.abs(dx) > 24) {
+    // One gesture = one lane (edge-triggered, like the arrow keys)
+    if (dx < -24) {
+      this.swipeDone = true;
       this.tapX = -1;
-      if (dx < -24) {
-        this.pointerLaneTarget = clamp(this.laneIdx - 1, 0, this.lanes - 1);
-      } else if (dx > 24) {
-        this.pointerLaneTarget = clamp(this.laneIdx + 1, 0, this.lanes - 1);
-      }
+      this.pointerLaneTarget = clamp(this.laneIdx - 1, 0, this.lanes - 1);
+    } else if (dx > 24) {
+      this.swipeDone = true;
+      this.tapX = -1;
+      this.pointerLaneTarget = clamp(this.laneIdx + 1, 0, this.lanes - 1);
     }
   }
 
