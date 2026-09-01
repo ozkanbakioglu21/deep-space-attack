@@ -1,5 +1,5 @@
 import { AudioManager } from "./audio";
-import { loadHighScore, saveHighScore, addDragonEggs } from "./storage";
+import { loadHighScore, saveHighScore } from "./storage";
 import { CHAPTERS, ENEMY_DEFS, POWERUP_INFO } from "./defs";
 import {
   BASE_SPAWN_INTERVAL,
@@ -396,23 +396,12 @@ export class Game {
     if (!this.playing) return;
     const next = Math.floor(this.time / LEVEL_DURATION) + 1;
     if (next !== this.level) {
-      const completed = this.level;
       this.level = next;
       this.cbs.onLevel(this.level);
       this.audio.levelUp();
       const bonus = this.level * 100;
       this.score += bonus;
       this.cbs.onScore(this.score);
-      // Completing a dragon-milestone chapter (7, 8, 9) earns a dragon egg.
-      if (completed === 7 || completed === 8 || completed === 9) {
-        const total = addDragonEggs(1);
-        this.cbs.onEgg?.(total);
-        const cxp = this.player.x;
-        const cyp = this.player.y - 54;
-        this.addPopup(cxp, cyp - 14, "EJDERHA YUMURTASI KAZANDIN!", "#ffd166", 16);
-        this.addPopup(cxp, cyp + 16, `Toplam: ${total} 🥚`, "#ffefb5", 14);
-        this.audio.powerup();
-      }
       if (this.player.alive) {
         this.addPopup(
           this.player.x,

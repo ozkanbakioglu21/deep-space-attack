@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { MODES, createMode } from "./game/modes";
 import type { GameAdapter, ModeId, ModeMeta } from "./game/modes/types";
 import { START_LIVES } from "./game/constants";
-import { loadHighScore, loadModeScore, loadDragonEggs } from "./game/storage";
+import { loadHighScore, loadModeScore } from "./game/storage";
 import type { GameOverResult } from "./game/types";
 
 type Screen = "menu" | "playing" | "gameover";
@@ -96,7 +96,6 @@ export default function App() {
   const [level, setLevel] = useState(1);
   const [combo, setCombo] = useState(1);
   const [best, setBest] = useState<BestScores>(initialBests);
-  const [eggs, setEggs] = useState(loadDragonEggs);
   const [result, setResult] = useState<GameOverResult | null>(null);
 
   useEffect(() => {
@@ -108,7 +107,6 @@ export default function App() {
       onLives: setLives,
       onLevel: setLevel,
       onCombo: setCombo,
-      onEgg: setEggs,
       onGameOver: (r) => {
         setResult(r);
         setBest((prev) => ({ ...prev, [modeRef.current]: r.highScore }));
@@ -137,7 +135,6 @@ export default function App() {
       onLives: setLives,
       onLevel: setLevel,
       onCombo: setCombo,
-      onEgg: setEggs,
       onGameOver: (r) => {
         setResult(r);
         setBest((prev) => ({ ...prev, [modeRef.current]: r.highScore }));
@@ -214,12 +211,6 @@ export default function App() {
               ))}
             </span>
           </div>
-          {eggs > 0 && (
-            <div className="hud-cell hud-eggs" title="Ejderha Yumurtası">
-              <span className="egg-icon" aria-hidden="true">🥚</span>
-              <span className="hud-value">{eggs}</span>
-            </div>
-          )}
           {hud.hud.showCombo && combo > 1 && <div className="hud-combo">x{combo}</div>}
           <div className="hud-cell hud-actions">
             <button
@@ -265,13 +256,6 @@ export default function App() {
           </div>
 
           <p className="best">Geçerli modun en iyi skoru anında saklanır.</p>
-
-          {eggs > 0 && (
-            <p className="best eggs-line">
-              <span className="egg-icon" aria-hidden="true">🥚</span>
-              Toplanan Ejderha Yumurtası: {eggs}
-            </p>
-          )}
         </div>
       )}
 

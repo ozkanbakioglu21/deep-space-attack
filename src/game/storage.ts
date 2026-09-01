@@ -1,5 +1,4 @@
 const KEY = "deep-space-attack-high-score";
-const EGGS_KEY = "deep-space-attack-dragon-eggs";
 const modeKey = (mode: string) => `${KEY}-${mode}`;
 
 export function loadHighScore(): number {
@@ -16,20 +15,6 @@ export function loadModeScore(mode: string): number {
 
 export function saveModeScore(mode: string, value: number): void {
   write(modeKey(mode), value);
-}
-
-export function loadDragonEggs(): number {
-  return read(EGGS_KEY);
-}
-
-export function saveDragonEggs(value: number): void {
-  write(EGGS_KEY, value);
-}
-
-export function addDragonEggs(delta: number): number {
-  const total = Math.max(0, loadDragonEggs() + delta);
-  saveDragonEggs(total);
-  return total;
 }
 
 function read(key: string): number {

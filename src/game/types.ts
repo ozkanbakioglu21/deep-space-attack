@@ -114,7 +114,6 @@ export interface GameCallbacks {
   onLives: (lives: number) => void;
   onLevel: (level: number) => void;
   onCombo: (multiplier: number) => void;
-  onEgg?: (total: number) => void;
   onGameOver: (result: GameOverResult) => void;
 }
 

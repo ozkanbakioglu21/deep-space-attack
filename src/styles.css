@@ -330,21 +330,6 @@ body {
   text-shadow: 0 0 12px rgba(80, 220, 255, 0.5);
 }
 
-.eggs-line {
-  color: #ffefb5;
-  text-shadow: 0 0 14px rgba(255, 209, 102, 0.55);
-}
-
-.egg-icon {
-  font-size: 1.1em;
-  display: inline-block;
-  margin-right: 2px;
-}
-
-.hud-eggs .egg-icon {
-  font-size: 18px;
-}
-
 .overlay-title {
   font-size: clamp(28px, 8vw, 42px);
   font-weight: 900;
