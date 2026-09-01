@@ -247,12 +247,8 @@ export class StormMode extends BaseMode {
       m.wobble += m.wobbleSpeed * dt;
       m.x = laneXs[m.lane ?? 1] + Math.sin(m.wobble * 2) * 8 * mult;
       if (m.y > this.H + 60) {
+        // Meteor cleared the player's line: it was dodged, nothing gained.
         m.alive = false;
-        const boost = m.gold ? 14 : 4;
-        this.speed = Math.min(SPEED_MAX, this.speed + boost);
-        this.addPopup(m.x, this.H - 30, m.gold ? `ALTIN RÜZGAR +${boost}` : `RÜZGAR +${boost}`, m.gold ? "#ffd166" : "#ffc987", m.gold ? 15 : 12);
-        this.bumpCombo();
-        this.vibrate(m.gold ? 20 : 10);
       } else if (
         p.invincible <= 0 &&
         this.overlaps(m.x, m.y, m.w, m.h, p.x, p.y, p.w * 0.7, p.h * 0.7)
@@ -270,7 +266,9 @@ export class StormMode extends BaseMode {
     const p = this.player;
     const laneXs = this.laneXs();
     for (const r of this.rivals) {
-      r.speed = r.baseSpeed - (this.lap - 1) * 3;
+      // Rivals hold a steady pace; the race is won by squeezing speed from
+      // gates/orbs/nitro, not by rivals slowing down each lap.
+      r.speed = r.baseSpeed + (this.lap - 1) * 2;
       r.dist += r.speed * dt;
       // Rivals drive ahead of player; show them if not overtaken yet
       r.y = p.y - (r.dist - this.distance) * 1.3;
@@ -433,7 +431,7 @@ export class StormMode extends BaseMode {
       rotSpeed: 0.8 + Math.random() * 1.8,
       flash: 0,
       dive: false,
-      gold: Math.random() < 0.13,
+      gold: false,
       nearMissed: false,
     });
   }
