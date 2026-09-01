@@ -17,6 +17,7 @@ export const MODES: ModeMeta[] = [
       "Aracın otomatik ateş eder. Düşman mermilerine ve çarpışmalara dikkat et.",
       "Düşmanlardan düşen güçleri topla: Kalkan, hızlı ateş, bomba, ekstra can.",
       "Hızlı seri öldürüşler komboyu yükseltir; her 5 seviyede yeni bir bölüm başlar.",
+      "7., 8. ve 9. seviyeyi tamamla => her biri bir Ejderha Yumurtası kazandırır.",
     ],
   },
 {
