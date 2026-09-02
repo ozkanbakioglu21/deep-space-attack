@@ -246,6 +246,20 @@ export class StormMode extends BaseMode {
       m.y += m.vy * dt;
       m.wobble += m.wobbleSpeed * dt;
       m.x = laneXs[m.lane ?? 1] + Math.sin(m.wobble * 2) * 8 * mult;
+      // Near-miss: the meteor clears the player's line without a hit, very close laterally.
+      const cross = !m.nearMissed && m.y >= p.y - 4 && m.y <= p.y + 10;
+      if (cross) {
+        m.nearMissed = true;
+        const dx = Math.abs(m.x - p.x);
+        const laneGap = this.W * 0.28;
+        if (dx < laneGap * 1.9) {
+          this.nitro = Math.min(NITRO_MAX, this.nitro + 6);
+          this.bumpScore(40);
+          this.bumpCombo();
+          this.addPopup(m.x, m.y - 12, "YAKIN! +40", "#ffd166", 12);
+          this.vibrate(6);
+        }
+      }
       if (m.y > this.H + 60) {
         // Meteor cleared the player's line: it was dodged, nothing gained.
         m.alive = false;
