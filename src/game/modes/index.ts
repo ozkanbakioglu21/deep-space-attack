@@ -27,10 +27,10 @@ export const MODES: ModeMeta[] = [
       hud: { showLevel: true, showCombo: true, levelLabel: "Tür", scoreLabel: "Mesafe" },
       controls: [
         "3 şerit: sola/sağa kaydır ya da ok tuşları (A/D) ile araç şerit değiştirsin.",
-        "Araç şeritte sabittir; pist ve göktaşları ona doğru akar.",
+        "Araç şeritte sabittir; pist ona doğru akar.",
         "Enerji halkalarından (chevron) geç ve ALTIN küreleri topla → NİTRO dolar.",
         "KYRA, VEX ve ZORB'u şerit şerit geçerek GEÇİLDİ bonusu al; sıralamanı üstte gör.",
-        "NİTRO dolunca dokun/boşluk → hız + skor katlansın. Göktaşına çarpma!",
+        "NİTRO dolunca dokun/boşluk → hız + skor katlansın.",
       ],
     },
     {

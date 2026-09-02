@@ -1,6 +1,5 @@
-import { ENEMY_DEFS } from "../defs";
-import { paintEnemy, paintPlayer } from "../painter";
-import type { ChapterDef, Enemy, GameCallbacks } from "../types";
+import { paintPlayer } from "../painter";
+import type { ChapterDef, GameCallbacks } from "../types";
 import { BaseMode } from "./base";
 
 const SPEED_BASE = 90;
@@ -44,12 +43,9 @@ const RIVALS: { name: string; color: string; baseSpeed: number; lane: number }[]
 ];
 
 export class StormMode extends BaseMode {
-  private meteors: Enemy[] = [];
   private gates: Gate[] = [];
   private orbs: Orb[] = [];
   private rivals: Rival[] = [];
-  private nextId = 1;
-  private spawnTimer = 0.8;
   private gateTimer = 1;
   private orbTimer = 0.15;
   private distTick = 0;
@@ -85,10 +81,8 @@ export class StormMode extends BaseMode {
 
   beginGame(): void {
     super.startRun();
-    this.meteors = [];
     this.gates = [];
     this.orbs = [];
-    this.spawnTimer = 0.8;
     this.gateTimer = 1;
     this.orbTimer = 0.15;
     this.distTick = 0;
@@ -117,7 +111,6 @@ export class StormMode extends BaseMode {
   }
 
   protected resetIdle(): void {
-    this.meteors = [];
     this.gates = [];
     this.orbs = [];
     this.rivals = [];
@@ -178,14 +171,6 @@ export class StormMode extends BaseMode {
       this.spawnOrb();
     }
     this.updateOrbs(dt, ratio);
-
-    const inter = Math.max(0.5, 1.35 - (this.lap - 1) * 0.07);
-    this.spawnTimer -= dt;
-    if (this.spawnTimer <= 0) {
-      this.spawnTimer = inter * (0.6 + Math.random() * 0.7);
-      this.pushMeteor(ratio);
-    }
-    this.updateMeteors(dt);
   }
 
   private updateGates(dt: number, ratio: number): void {
@@ -235,45 +220,6 @@ export class StormMode extends BaseMode {
       }
     }
     this.orbs = this.orbs.filter((o) => o.alive);
-  }
-
-  private updateMeteors(dt: number): void {
-    const p = this.player;
-    const laneXs = this.laneXs();
-    const mult = 1 + (this.lap - 1) * 0.1;
-    for (const m of this.meteors) {
-      m.rot += m.rotSpeed * dt;
-      m.y += m.vy * dt;
-      m.wobble += m.wobbleSpeed * dt;
-      m.x = laneXs[m.lane ?? 1] + Math.sin(m.wobble * 2) * 8 * mult;
-      // Near-miss: the meteor clears the player's line without a hit, very close laterally.
-      const cross = !m.nearMissed && m.y >= p.y - 4 && m.y <= p.y + 10;
-      if (cross) {
-        m.nearMissed = true;
-        const dx = Math.abs(m.x - p.x);
-        const laneGap = this.W * 0.28;
-        if (dx < laneGap * 1.9) {
-          this.nitro = Math.min(NITRO_MAX, this.nitro + 6);
-          this.bumpScore(40);
-          this.bumpCombo();
-          this.addPopup(m.x, m.y - 12, "YAKIN! +40", "#ffd166", 12);
-          this.vibrate(6);
-        }
-      }
-      if (m.y > this.H + 60) {
-        // Meteor cleared the player's line: it was dodged, nothing gained.
-        m.alive = false;
-      } else if (
-        p.invincible <= 0 &&
-        this.overlaps(m.x, m.y, m.w, m.h, p.x, p.y, p.w * 0.7, p.h * 0.7)
-      ) {
-        m.alive = false;
-        this.explode(m.x, m.y, "#ff9f43", 18, 10, 170);
-        this.speed = Math.max(SPEED_BASE, this.speed - 22);
-        this.registerHit();
-      }
-    }
-    this.meteors = this.meteors.filter((m) => m.alive && m.y < this.H + 300);
   }
 
   private updateRivals(dt: number): void {
@@ -420,36 +366,6 @@ export class StormMode extends BaseMode {
     this.orbs.push({ lane: Math.floor(Math.random() * this.lanes), y: -20, alive: true, gold, phase: Math.random() * Math.PI * 2 });
   }
 
-  private pushMeteor(ratio: number): void {
-    const lane = Math.floor(Math.random() * this.lanes);
-    const laneX = this.lanePos(lane);
-    const def = ENEMY_DEFS.meteor;
-    const mult = 1 + (this.lap - 1) * 0.1;
-    this.meteors.push({
-      id: this.nextId++,
-      kind: "meteor",
-      x: laneX,
-      y: -def.h - 10,
-      w: def.w,
-      h: def.h,
-      vx: 0,
-      vy: def.speed * mult * (0.8 + Math.random() * 0.45) * ratio * 1.5,
-      alive: true,
-      hp: ENEMY_DEFS.meteor.hp,
-      baseX: laneX,
-      lane,
-      wobble: Math.random() * Math.PI * 2,
-      wobbleSpeed: 0.5 + Math.random() * 1.4,
-      shootTimer: 9,
-      rot: Math.random() * Math.PI * 2,
-      rotSpeed: 0.8 + Math.random() * 1.8,
-      flash: 0,
-      dive: false,
-      gold: false,
-      nearMissed: false,
-    });
-  }
-
   protected renderEntities(ctx: CanvasRenderingContext2D): void {
     this.drawTrack(ctx);
     if (this.speed > SPEED_BASE * 1.12 || this.boosting) {
@@ -471,7 +387,6 @@ export class StormMode extends BaseMode {
     }
     for (const g of this.gates) this.drawGate(ctx, g);
     for (const o of this.orbs) this.drawOrb(ctx, o);
-    for (const m of this.meteors) paintEnemy(ctx, m, this.time);
     for (const r of this.rivals) this.drawRival(ctx, r);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time);
     this.drawHud(ctx);
