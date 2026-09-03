@@ -76,21 +76,14 @@ export class StormMode extends BaseMode {
   private boosting = false;
   private boostTimer = 0;
   private countdown = 0;
-  private lastCount = -1;
-  private passStreak = 0;
-  private passStreakTimer = 0;
-  private surge = 0;
-  private surgeTimer = 0;
-  private surgeCd = 10;
-  private pos = 1;
-  private lanes = 3;
-  private laneIdx = 1; // start middle
-  private countdown = 0;
   private passStreak = 0;
   private passStreakTimer = 0;
   private surge = 0;
   private surgeTimer = 14;
-  private ghosts: { x: number; y: number; a: number }[] = [];
+  private surgeCd = 10;
+  private pos = 1;
+  private lanes = 3;
+  private laneIdx = 1; // start middle
 
   protected get palette(): ChapterDef {
     return {
@@ -128,7 +121,6 @@ export class StormMode extends BaseMode {
     this.boosting = false;
     this.boostTimer = 0;
     this.countdown = 3.0;
-    this.lastCount = -1;
     this.passStreak = 0;
     this.passStreakTimer = 0;
     this.surge = 0;
