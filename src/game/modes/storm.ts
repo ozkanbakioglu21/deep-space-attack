@@ -75,9 +75,22 @@ export class StormMode extends BaseMode {
   private nitro = 0;
   private boosting = false;
   private boostTimer = 0;
+  private countdown = 0;
+  private lastCount = -1;
+  private passStreak = 0;
+  private passStreakTimer = 0;
+  private surge = 0;
+  private surgeTimer = 0;
+  private surgeCd = 10;
   private pos = 1;
   private lanes = 3;
   private laneIdx = 1; // start middle
+  private countdown = 0;
+  private passStreak = 0;
+  private passStreakTimer = 0;
+  private surge = 0;
+  private surgeTimer = 14;
+  private ghosts: { x: number; y: number; a: number }[] = [];
 
   protected get palette(): ChapterDef {
     return {
@@ -114,6 +127,13 @@ export class StormMode extends BaseMode {
     this.nitro = 0;
     this.boosting = false;
     this.boostTimer = 0;
+    this.countdown = 3.0;
+    this.lastCount = -1;
+    this.passStreak = 0;
+    this.passStreakTimer = 0;
+    this.surge = 0;
+    this.surgeTimer = 0;
+    this.surgeCd = 11;
     this.pos = 1;
     this.laneIdx = 1;
     this.leftDown = false;
@@ -143,10 +163,52 @@ export class StormMode extends BaseMode {
 
   protected updateSub(dt: number): void {
     this.updateLane(dt);
-    this.spawnThruster(this.boosting ? "#7cf9ff" : "#ffcf8a");
+    this.spawnThruster(this.boosting ? "#7cf9ff" : this.surge > 0 ? "#ffd166" : "#ffcf8a");
 
     const p = this.player;
     if (p.invincible > 0) p.invincible -= dt;
+
+    // Countdown: 3-2-1 then GO (freeze the race until GO)
+    if (this.countdown > 0) {
+      const before = Math.ceil(this.countdown);
+      this.countdown -= dt;
+      const after = Math.ceil(this.countdown);
+      if (after < before && after >= 1) this.audio.countBeep(false);
+      if (this.countdown <= 0) {
+        this.countdown = 0;
+        this.audio.countBeep(true);
+        this.setBanner("BAŞLA!", null, 0.9);
+        this.flash = Math.max(this.flash, 0.6);
+        this.shake = Math.min(12, this.shake + 8);
+      }
+      return;
+    }
+
+    // Photon storm: periodic surge of speed + score
+    this.surgeCd -= dt;
+    if (this.surgeCd <= 0) {
+      this.surgeCd = 12 + Math.random() * 6;
+      this.surgeTimer = 1.6;
+      this.setBanner("FOTON FIRTINASI!", "HIZ + SKOR PATLAMASI", 1.6);
+      this.flash = Math.max(this.flash, 0.5);
+      this.shake = Math.min(16, this.shake + 10);
+      this.audio.boost();
+    }
+    if (this.surgeTimer > 0) {
+      this.surgeTimer -= dt;
+      this.surge = 1;
+      this.speed = Math.min(SPEED_MAX + 60, this.speed + 80 * dt);
+      this.nitro = Math.min(NITRO_MAX, this.nitro + 30 * dt);
+      this.bumpScore(Math.round(140 * dt));
+    } else {
+      this.surge = 0;
+    }
+
+    // Pass-streak decay
+    if (this.passStreakTimer > 0) {
+      this.passStreakTimer -= dt;
+      if (this.passStreakTimer <= 0) this.passStreak = 0;
+    }
 
     // Nitro boost
     if (this.boosting && this.boostTimer > 0) {
@@ -328,12 +390,25 @@ export class StormMode extends BaseMode {
       // passed when their screen y crosses the player's fixed y
       if (!r.passed && r.y >= p.y) {
         r.passed = true;
-        this.bumpScore(300);
+        this.passStreak++;
+        this.passStreakTimer = 3;
+        const bonus = 300 + (this.passStreak - 1) * 150;
+        this.bumpScore(bonus);
         this.nitro = Math.min(NITRO_MAX, this.nitro + 30);
         this.bumpCombo();
-        this.addPopup(laneXs[r.lane], p.y - 20, `GEÇİLDİ +300`, "#3dffa0", 16);
-        this.vibrate(20);
+        const streak = this.passStreak > 1;
+        this.addPopup(
+          laneXs[r.lane],
+          p.y - 20,
+          streak ? `SERİ ${this.passStreak}x +${bonus}` : `GEÇİLDİ +${bonus}`,
+          "#3dffa0",
+          streak ? 19 : 16,
+        );
+        this.addHitStop(0.03);
+        this.vibrate(20 + this.passStreak * 4);
+        this.shake = Math.min(14, this.shake + 4 + this.passStreak);
         this.flash = Math.max(this.flash, 0.2);
+        this.audio.powerup();
       }
       // Draft: rival just ahead in the lane directly in front
       if (!r.passed && Math.abs(r.dist - this.distance) < 30 && Math.abs(r.y - p.y) < 20) {
@@ -442,7 +517,7 @@ export class StormMode extends BaseMode {
       this.boosting = true;
       this.boostTimer = 0.8;
       this.nitro -= 25;
-      this.audio.powerup();
+      this.audio.boost();
       this.addPopup(this.player.x, this.player.y - 30, "NİTRO!", "#7cf9ff", 18);
       this.shake = Math.min(14, this.shake + 8);
     }
@@ -482,8 +557,10 @@ export class StormMode extends BaseMode {
     for (const o of this.orbs) this.drawOrb(ctx, o);
     for (const t of this.traffic) this.drawTraffic(ctx, t);
     for (const r of this.rivals) this.drawRival(ctx, r);
+    this.drawAfterimage(ctx);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time);
     this.drawHud(ctx);
+    this.drawCountdown(ctx);
   }
 
   private drawTrack(ctx: CanvasRenderingContext2D): void {
@@ -715,6 +792,48 @@ export class StormMode extends BaseMode {
     ctx.arc(0, nose + 2, 2.2, 0, Math.PI * 2);
     ctx.fill();
 
+    ctx.restore();
+  }
+
+  private drawAfterimage(ctx: CanvasRenderingContext2D): void {
+    if (!this.boosting && this.surge <= 0) return;
+    const p = this.player;
+    const color = this.surge > 0 ? "#ffd166" : "#7cf9ff";
+    ctx.save();
+    for (let i = 1; i <= 4; i++) {
+      ctx.globalAlpha = 0.22 - i * 0.045;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - 20 - i * 16);
+      ctx.lineTo(p.x + 9, p.y + 8 - i * 16);
+      ctx.lineTo(p.x - 9, p.y + 8 - i * 16);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  private drawCountdown(ctx: CanvasRenderingContext2D): void {
+    if (this.countdown <= 0) return;
+    const n = Math.min(3, Math.max(1, Math.ceil(this.countdown)));
+    const frac = this.countdown - Math.floor(this.countdown);
+    const scale = 1 + (1 - frac) * 0.5;
+    const cx = this.W / 2;
+    const cy = this.H * 0.4;
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, cy - 60, this.W, 120);
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = "#ffd166";
+    ctx.shadowColor = "#ffd166";
+    ctx.shadowBlur = 24;
+    ctx.font = "bold 84px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(n), 0, 0);
     ctx.restore();
   }
 

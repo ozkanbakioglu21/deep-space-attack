@@ -82,4 +82,24 @@ export class AudioManager {
     this.beep(140, 0.5, "sawtooth", 0.14);
     this.beep(70, 0.6, "sine", 0.12, 0.05);
   }
+
+  boost(): void {
+    if (this.muted || !this.ctx) return;
+    const t0 = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(200, t0);
+    osc.frequency.exponentialRampToValueAtTime(980, t0 + 0.4);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.09, t0 + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+    osc.connect(gain).connect(this.ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.5);
+  }
+
+  countBeep(go = false): void {
+    this.beep(go ? 880 : 440, go ? 0.28 : 0.1, "square", 0.07);
+  }
 }
