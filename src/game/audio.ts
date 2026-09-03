@@ -102,4 +102,11 @@ export class AudioManager {
   countBeep(go = false): void {
     this.beep(go ? 880 : 440, go ? 0.28 : 0.1, "square", 0.07);
   }
+
+  combo(level: number): void {
+    const base = 500 + Math.min(6, level) * 80;
+    this.beep(base, 0.06, "square", 0.05);
+    this.beep(base * 1.26, 0.07, "square", 0.05, 0.05);
+    if (level >= 4) this.beep(base * 1.5, 0.09, "square", 0.05, 0.1);
+  }
 }

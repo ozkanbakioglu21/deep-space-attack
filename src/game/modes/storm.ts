@@ -81,6 +81,8 @@ export class StormMode extends BaseMode {
   private surge = 0;
   private surgeTimer = 14;
   private surgeCd = 10;
+  private comboHeat = 0;
+  private lastMult = 1;
   private pos = 1;
   private lanes = 3;
   private laneIdx = 1; // start middle
@@ -126,6 +128,8 @@ export class StormMode extends BaseMode {
     this.surge = 0;
     this.surgeTimer = 0;
     this.surgeCd = 11;
+    this.comboHeat = 0;
+    this.lastMult = 1;
     this.pos = 1;
     this.laneIdx = 1;
     this.leftDown = false;
@@ -185,6 +189,7 @@ export class StormMode extends BaseMode {
       this.flash = Math.max(this.flash, 0.5);
       this.shake = Math.min(16, this.shake + 10);
       this.audio.boost();
+      this.addComboHeat(15);
     }
     if (this.surgeTimer > 0) {
       this.surgeTimer -= dt;
@@ -202,6 +207,19 @@ export class StormMode extends BaseMode {
       if (this.passStreakTimer <= 0) this.passStreak = 0;
     }
 
+    // Combo heat decay + multiplier-up feedback
+    if (this.comboHeat > 0) this.comboHeat = Math.max(0, this.comboHeat - 11 * dt);
+    const mult = this.multiplier();
+    if (mult > this.lastMult) {
+      this.audio.combo(Math.min(5, mult));
+      this.addPopup(this.player.x, this.player.y - 46, `x${mult}!`, "#ffd166", 16 + mult * 2);
+      if (mult >= 5) {
+        this.setBanner("MAX KOMBO!", "SKOR x5", 1.0);
+        this.flash = Math.max(this.flash, 0.5);
+      }
+    }
+    this.lastMult = mult;
+
     // Nitro boost
     if (this.boosting && this.boostTimer > 0) {
       this.boostTimer -= dt;
@@ -209,7 +227,8 @@ export class StormMode extends BaseMode {
       this.speed = Math.min(SPEED_MAX + 60, this.speed + 60);
       this.shake = Math.min(14, this.shake + 10);
     } else {
-      this.speed = Math.max(SPEED_BASE, this.speed - SPEED_DECAY * dt);
+      const paceFloor = SPEED_BASE + Math.min(60, this.distance * 0.045);
+      this.speed = Math.max(paceFloor, this.speed - SPEED_DECAY * dt);
     }
 
     const ratio = this.speed / SPEED_BASE;
@@ -301,6 +320,7 @@ export class StormMode extends BaseMode {
           this.nitro = Math.min(NITRO_MAX, this.nitro + 6);
           this.bumpScore(40);
           this.bumpCombo();
+          this.addComboHeat(18);
           this.addPopup(cx, t.y - 12, "YAKIN! +40", "#ffd166", 12);
           this.vibrate(6);
         }
@@ -340,6 +360,7 @@ export class StormMode extends BaseMode {
         this.addHitStop(0.025);
         this.vibrate(12);
         this.bumpCombo();
+        this.addComboHeat(g.gold ? 28 : 12);
         this.flash = Math.max(this.flash, 0.12);
       }
     }
@@ -364,6 +385,7 @@ export class StormMode extends BaseMode {
         this.audio.powerup();
         this.vibrate(o.gold ? 18 : 10);
         this.bumpCombo();
+        this.addComboHeat(o.gold ? 14 : 8);
       }
     }
     this.orbs = this.orbs.filter((o) => o.alive);
@@ -388,6 +410,7 @@ export class StormMode extends BaseMode {
         this.bumpScore(bonus);
         this.nitro = Math.min(NITRO_MAX, this.nitro + 30);
         this.bumpCombo();
+        this.addComboHeat(16);
         const streak = this.passStreak > 1;
         this.addPopup(
           laneXs[r.lane],
@@ -412,6 +435,22 @@ export class StormMode extends BaseMode {
     rank.sort((a, b) => b.dist - a.dist);
     this.pos = rank.findIndex((x) => x.player) + 1;
     if (this.pos < 1) this.pos = 1;
+  }
+
+  protected bumpScore(n: number): void {
+    super.bumpScore(Math.round(n * this.multiplier()));
+  }
+
+  private multiplier(): number {
+    if (this.comboHeat >= 90) return 5;
+    if (this.comboHeat >= 72) return 4;
+    if (this.comboHeat >= 48) return 3;
+    if (this.comboHeat >= 24) return 2;
+    return 1;
+  }
+
+  private addComboHeat(n: number): void {
+    this.comboHeat = Math.min(100, this.comboHeat + n);
   }
 
   // ---- Lane input: swipe / arrows to change lane ----
@@ -528,10 +567,10 @@ export class StormMode extends BaseMode {
 
   protected renderEntities(ctx: CanvasRenderingContext2D): void {
     this.drawTrack(ctx);
-    if (this.speed > SPEED_BASE * 1.12 || this.boosting) {
+    if (this.speed > SPEED_BASE * 1.12 || this.boosting || this.surge > 0) {
       ctx.save();
-      ctx.globalAlpha = this.boosting ? 0.75 : 0.55;
-      ctx.strokeStyle = this.boosting ? "#7cf9ff" : "#ffd9a8";
+      ctx.globalAlpha = this.boosting ? 0.75 : this.surge > 0 ? 0.6 : 0.55;
+      ctx.strokeStyle = this.boosting ? "#7cf9ff" : this.surge > 0 ? "#ffd166" : "#ffd9a8";
       for (let i = 0; i < 11; i++) {
         const h = (Math.sin(i * 127.1) * 43758.5453) % 1;
         const x = Math.abs(h) * this.W;
@@ -864,6 +903,20 @@ export class StormMode extends BaseMode {
     ctx.font = "bold 11px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(`TÜR ${this.lap}  •  ${Math.round(this.distance)}m`, this.W / 2, 40);
+
+    const mult = this.multiplier();
+    if (mult > 1) {
+      const heat = this.comboHeat / 100;
+      const mc = mult >= 5 ? "#ff5c8a" : mult >= 3 ? "#ffd166" : "#3dffa0";
+      ctx.fillStyle = mc;
+      ctx.font = `bold ${15 + Math.round(heat * 7)}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.fillText(`KOMBO x${mult}`, this.W / 2, 60);
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.fillRect(this.W / 2 - 40, 65, 80, 4);
+      ctx.fillStyle = mc;
+      ctx.fillRect(this.W / 2 - 40, 65, 80 * heat, 4);
+    }
   }
 }
 
