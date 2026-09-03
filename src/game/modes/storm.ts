@@ -36,6 +36,24 @@ interface Rival {
   y: number;
 }
 
+interface Traffic {
+  lane: number;
+  y: number;
+  kind: number;
+  w: number;
+  h: number;
+  wobble: number;
+  alive: boolean;
+  nearMissed: boolean;
+}
+
+const TRAFFIC_STYLES: { body: string; roof: string }[] = [
+  { body: "#c0392b", roof: "#7b241c" },
+  { body: "#2980b9", roof: "#154360" },
+  { body: "#27ae60", roof: "#145a32" },
+  { body: "#f39c12", roof: "#7e5109" },
+];
+
 const RIVALS: { name: string; color: string; baseSpeed: number; lane: number }[] = [
   { name: "KYRA", color: "#ff5d8f", baseSpeed: 100, lane: 0 },
   { name: "VEX", color: "#ffab3c", baseSpeed: 106, lane: 1 },
@@ -46,6 +64,8 @@ export class StormMode extends BaseMode {
   private gates: Gate[] = [];
   private orbs: Orb[] = [];
   private rivals: Rival[] = [];
+  private traffic: Traffic[] = [];
+  private trafficTimer = 1.4;
   private gateTimer = 1;
   private orbTimer = 0.15;
   private distTick = 0;
@@ -83,6 +103,8 @@ export class StormMode extends BaseMode {
     super.startRun();
     this.gates = [];
     this.orbs = [];
+    this.traffic = [];
+    this.trafficTimer = 1.4;
     this.gateTimer = 1;
     this.orbTimer = 0.15;
     this.distTick = 0;
@@ -113,6 +135,7 @@ export class StormMode extends BaseMode {
   protected resetIdle(): void {
     this.gates = [];
     this.orbs = [];
+    this.traffic = [];
     this.rivals = [];
     this.player = this.makePlayer();
     this.player.y = this.H * PLAYER_Y;
@@ -171,6 +194,76 @@ export class StormMode extends BaseMode {
       this.spawnOrb();
     }
     this.updateOrbs(dt, ratio);
+
+    this.trafficTimer -= dt;
+    if (this.trafficTimer <= 0) {
+      this.trafficTimer = Math.max(0.75, 1.5 - (this.lap - 1) * 0.08) * (0.7 + Math.random() * 0.6);
+      this.spawnTraffic();
+    }
+    this.updateTraffic(dt, ratio);
+  }
+
+  private spawnTraffic(): void {
+    // Avoid sealing all three lanes near the top: skip if two lanes already
+    // have a vehicle close to the spawn line.
+    const open: number[] = [];
+    for (let lane = 0; lane < this.lanes; lane++) {
+      const blocked = this.traffic.some(
+        (t) => t.lane === lane && t.y < 150,
+      );
+      if (!blocked) open.push(lane);
+    }
+    if (open.length <= 1) return; // would block the track, skip this spawn
+    const lane = open[Math.floor(Math.random() * open.length)];
+    const kind = Math.floor(Math.random() * TRAFFIC_STYLES.length);
+    const w = 34;
+    const h = 46;
+    this.traffic.push({
+      lane,
+      y: -h - 20,
+      kind,
+      w,
+      h,
+      wobble: Math.random() * Math.PI * 2,
+      alive: true,
+      nearMissed: false,
+    });
+  }
+
+  private updateTraffic(dt: number, ratio: number): void {
+    const p = this.player;
+    const laneXs = this.laneXs();
+    const speed = 132 * ratio;
+    for (const t of this.traffic) {
+      t.y += speed * dt;
+      const cx = laneXs[t.lane];
+      // Near-miss: the traffic car clears the player's line without a hit, very close.
+      const cross = !t.nearMissed && t.y >= p.y - 4 && t.y <= p.y + 12;
+      if (cross) {
+        t.nearMissed = true;
+        const dx = Math.abs(cx - p.x);
+        const laneGap = this.W * 0.28;
+        if (dx < laneGap * 1.9) {
+          this.nitro = Math.min(NITRO_MAX, this.nitro + 6);
+          this.bumpScore(40);
+          this.bumpCombo();
+          this.addPopup(cx, t.y - 12, "YAKIN! +40", "#ffd166", 12);
+          this.vibrate(6);
+        }
+      }
+      if (t.y > this.H + 60) {
+        t.alive = false;
+      } else if (
+        p.invincible <= 0 &&
+        this.overlaps(cx, t.y, t.w, t.h, p.x, p.y, p.w * 0.7, p.h * 0.7)
+      ) {
+        t.alive = false;
+        this.explode(cx, t.y, "#ff9f43", 16, 10, 160);
+        this.speed = Math.max(SPEED_BASE, this.speed - 22);
+        this.registerHit();
+      }
+    }
+    this.traffic = this.traffic.filter((t) => t.alive && t.y < this.H + 300);
   }
 
   private updateGates(dt: number, ratio: number): void {
@@ -387,6 +480,7 @@ export class StormMode extends BaseMode {
     }
     for (const g of this.gates) this.drawGate(ctx, g);
     for (const o of this.orbs) this.drawOrb(ctx, o);
+    for (const t of this.traffic) this.drawTraffic(ctx, t);
     for (const r of this.rivals) this.drawRival(ctx, r);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time);
     this.drawHud(ctx);
@@ -542,6 +636,52 @@ export class StormMode extends BaseMode {
     ctx.font = "bold 8px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(r.name, x, y + 34);
+    ctx.restore();
+  }
+
+  private drawTraffic(ctx: CanvasRenderingContext2D, t: Traffic): void {
+    const x = this.lanePos(t.lane);
+    const y = t.y;
+    if (y < -60 || y > this.H + 60) return;
+    const style = TRAFFIC_STYLES[t.kind];
+    const w = t.w;
+    const h = t.h;
+    ctx.save();
+    ctx.translate(x, y);
+
+    // body
+    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = style.body;
+    ctx.beginPath();
+    ctx.moveTo(-w / 2, -h / 2 + 6);
+    ctx.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + 6, -h / 2);
+    ctx.lineTo(w / 2 - 6, -h / 2);
+    ctx.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + 6);
+    ctx.lineTo(w / 2, h / 2 - 6);
+    ctx.quadraticCurveTo(w / 2, h / 2, w / 2 - 6, h / 2);
+    ctx.lineTo(-w / 2 + 6, h / 2);
+    ctx.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // windshield (front)
+    ctx.fillStyle = "rgba(180,225,255,0.85)";
+    ctx.fillRect(-w / 2 + 6, -h / 2 + 8, w - 12, 9);
+    // rear window
+    ctx.fillRect(-w / 2 + 6, h / 2 - 14, w - 12, 7);
+    // roof
+    ctx.fillStyle = style.roof;
+    ctx.fillRect(-w / 2 + 6, -h / 2 + 18, w - 12, h - 33);
+
+    // taillights (rear, facing the player)
+    ctx.fillStyle = "#ff5555";
+    ctx.fillRect(-w / 2 + 2, h / 2 - 5, 6, 4);
+    ctx.fillRect(w / 2 - 8, h / 2 - 5, 6, 4);
+
     ctx.restore();
   }
 

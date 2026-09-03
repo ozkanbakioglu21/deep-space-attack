@@ -28,6 +28,7 @@ export const MODES: ModeMeta[] = [
       controls: [
         "3 şerit: sola/sağa kaydır ya da ok tuşları (A/D) ile araç şerit değiştirsin.",
         "Araç şeritte sabittir; pist ona doğru akar.",
+        "Yoldaki trafiğe çarpma: şerit değiştirerek kaç, sıyırarak geç (YAKIN! bonusu).",
         "Enerji halkalarından (chevron) geç ve ALTIN küreleri topla → NİTRO dolar.",
         "KYRA, VEX ve ZORB'u şerit şerit geçerek GEÇİLDİ bonusu al; sıralamanı üstte gör.",
         "NİTRO dolunca dokun/boşluk → hız + skor katlansın.",
