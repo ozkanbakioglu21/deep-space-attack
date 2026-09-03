@@ -47,11 +47,11 @@ interface Traffic {
   nearMissed: boolean;
 }
 
-const TRAFFIC_STYLES: { body: string; roof: string }[] = [
-  { body: "#c0392b", roof: "#7b241c" },
-  { body: "#2980b9", roof: "#154360" },
-  { body: "#27ae60", roof: "#145a32" },
-  { body: "#f39c12", roof: "#7e5109" },
+const TRAFFIC_STYLES: { body: string; accent: string }[] = [
+  { body: "#5a4636", accent: "#ffb347" },
+  { body: "#38455f", accent: "#4fd0ff" },
+  { body: "#3a5a38", accent: "#a0ff5d" },
+  { body: "#5a385a", accent: "#ff7ce0" },
 ];
 
 const RIVALS: { name: string; color: string; baseSpeed: number; lane: number }[] = [
@@ -649,38 +649,71 @@ export class StormMode extends BaseMode {
     ctx.save();
     ctx.translate(x, y);
 
-    // body
+    const nose = -h / 2;
+    const tail = h / 2;
+
+    // engine glow at the tail (facing the player)
+    const flick = 0.6 + 0.4 * Math.sin(this.time * 14 + t.wobble);
+    ctx.globalAlpha = 0.55 + 0.35 * flick;
+    ctx.fillStyle = style.accent;
+    ctx.shadowColor = style.accent;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.moveTo(-5, tail - 4);
+    ctx.lineTo(0, tail + 6 + flick * 5);
+    ctx.lineTo(5, tail - 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+
+    // wings (angular, kind varies the sweep)
+    const sweep = 0.75 + (t.kind % 3) * 0.16;
+    ctx.fillStyle = style.body;
+    ctx.strokeStyle = style.accent;
+    ctx.lineWidth = 1.5;
+    for (const k of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(k * 4, -2);
+      ctx.lineTo(k * (w / 2 + 4), 8 + sweep * 6);
+      ctx.lineTo(k * (w / 2 - 2), 4 + sweep * 4);
+      ctx.lineTo(k * 5, 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // fuselage
     ctx.shadowColor = "rgba(0,0,0,0.5)";
     ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 3;
     ctx.fillStyle = style.body;
     ctx.beginPath();
-    ctx.moveTo(-w / 2, -h / 2 + 6);
-    ctx.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + 6, -h / 2);
-    ctx.lineTo(w / 2 - 6, -h / 2);
-    ctx.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + 6);
-    ctx.lineTo(w / 2, h / 2 - 6);
-    ctx.quadraticCurveTo(w / 2, h / 2, w / 2 - 6, h / 2);
-    ctx.lineTo(-w / 2 + 6, h / 2);
-    ctx.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - 6);
+    ctx.moveTo(0, nose);
+    ctx.lineTo(w / 3, nose + h * 0.4);
+    ctx.lineTo(w / 4, tail - 4);
+    ctx.lineTo(-w / 4, tail - 4);
+    ctx.lineTo(-w / 3, nose + h * 0.4);
     ctx.closePath();
     ctx.fill();
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-    // windshield (front)
-    ctx.fillStyle = "rgba(180,225,255,0.85)";
-    ctx.fillRect(-w / 2 + 6, -h / 2 + 8, w - 12, 9);
-    // rear window
-    ctx.fillRect(-w / 2 + 6, h / 2 - 14, w - 12, 7);
-    // roof
-    ctx.fillStyle = style.roof;
-    ctx.fillRect(-w / 2 + 6, -h / 2 + 18, w - 12, h - 33);
+    // cockpit canopy
+    ctx.fillStyle = "rgba(150,225,255,0.9)";
+    ctx.beginPath();
+    ctx.moveTo(0, nose + 7);
+    ctx.lineTo(5, nose + 18);
+    ctx.lineTo(0, nose + 24);
+    ctx.lineTo(-5, nose + 18);
+    ctx.closePath();
+    ctx.fill();
 
-    // taillights (rear, facing the player)
-    ctx.fillStyle = "#ff5555";
-    ctx.fillRect(-w / 2 + 2, h / 2 - 5, 6, 4);
-    ctx.fillRect(w / 2 - 8, h / 2 - 5, 6, 4);
+    // nose light
+    ctx.fillStyle = style.accent;
+    ctx.beginPath();
+    ctx.arc(0, nose + 2, 2.2, 0, Math.PI * 2);
+    ctx.fill();
 
     ctx.restore();
   }
