@@ -134,9 +134,9 @@ export const CHAPTERS: ChapterDef[] = [
     star: "#ffe3b3",
     starSpeed: 1.7,
     nebulas: [{ x: 0.25, y: 0.7, r: 0.6, color: "rgba(255,140,60,0.08)" }],
-    rocks: 7,
-    rockColor: "#8a5c32",
-    rockSpeed: 80,
+    rocks: 0,
+    rockColor: "#000000",
+    rockSpeed: 0,
   },
   {
     name: "HİPER UZAY",

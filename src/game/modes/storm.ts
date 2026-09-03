@@ -94,9 +94,9 @@ export class StormMode extends BaseMode {
       star: "#ffd9a8",
       starSpeed: 2.2,
       nebulas: [{ x: 0.2, y: 0.7, r: 0.6, color: "rgba(255,120,50,0.08)" }],
-      rocks: 6,
-      rockColor: "#7a4630",
-      rockSpeed: 160,
+      rocks: 0,
+      rockColor: "#000000",
+      rockSpeed: 0,
     };
   }
 
