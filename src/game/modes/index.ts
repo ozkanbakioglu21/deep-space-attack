@@ -22,7 +22,7 @@ export const MODES: ModeMeta[] = [
 {
       id: "storm",
       name: "METEOR YARIŞI",
-      tagline: "Yarış: rakipleri geç, nitro topla, enerji geçitlerinden geç ve bitiş çizgisine ilk sen ulaş.",
+      tagline: "Yarış: nitro topla, enerji halkalarından geç, uzay gemilerinden sıyrıl ve KOMBO çarpanını büyüt.",
       accent: "#ff9f43",
       hud: { showLevel: true, showCombo: true, levelLabel: "Tür", scoreLabel: "Mesafe" },
       controls: [
@@ -30,7 +30,7 @@ export const MODES: ModeMeta[] = [
         "Araç şeritte sabittir; pist ona doğru akar.",
         "Yoldaki uzay gemilerine çarpma: şerit değiştirerek kaç, sıyırarak geç (YAKIN! bonusu).",
         "Enerji halkalarından (chevron) geç ve ALTIN küreleri topla → NİTRO dolar.",
-        "KYRA, VEX ve ZORB'u şerit şerit geçerek GEÇİLDİ bonusu al; sıralamanı üstte gör.",
+        "Yakın geçiş + halka + toplarla KOMBO ısısı biriktir; skor x5 çarpanına ulaş.",
         "NİTRO dolunca dokun/boşluk → hız + skor katlansın.",
       ],
     },

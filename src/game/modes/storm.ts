@@ -24,18 +24,6 @@ interface Orb {
   phase: number;
 }
 
-interface Rival {
-  name: string;
-  color: string;
-  lane: number;
-  offset: number;
-  dist: number;
-  speed: number;
-  baseSpeed: number;
-  passed: boolean;
-  y: number;
-}
-
 interface Traffic {
   lane: number;
   y: number;
@@ -54,16 +42,9 @@ const TRAFFIC_STYLES: { body: string; accent: string }[] = [
   { body: "#5a385a", accent: "#ff7ce0" },
 ];
 
-const RIVALS: { name: string; color: string; baseSpeed: number; lane: number }[] = [
-  { name: "KYRA", color: "#ff5d8f", baseSpeed: 100, lane: 0 },
-  { name: "VEX", color: "#ffab3c", baseSpeed: 106, lane: 1 },
-  { name: "ZORB", color: "#7cff5d", baseSpeed: 112, lane: 2 },
-];
-
 export class StormMode extends BaseMode {
   private gates: Gate[] = [];
   private orbs: Orb[] = [];
-  private rivals: Rival[] = [];
   private traffic: Traffic[] = [];
   private trafficTimer = 1.4;
   private gateTimer = 1;
@@ -76,14 +57,11 @@ export class StormMode extends BaseMode {
   private boosting = false;
   private boostTimer = 0;
   private countdown = 0;
-  private passStreak = 0;
-  private passStreakTimer = 0;
   private surge = 0;
   private surgeTimer = 14;
   private surgeCd = 10;
   private comboHeat = 0;
   private lastMult = 1;
-  private pos = 1;
   private lanes = 3;
   private laneIdx = 1; // start middle
 
@@ -123,36 +101,21 @@ export class StormMode extends BaseMode {
     this.boosting = false;
     this.boostTimer = 0;
     this.countdown = 3.0;
-    this.passStreak = 0;
-    this.passStreakTimer = 0;
     this.surge = 0;
     this.surgeTimer = 0;
     this.surgeCd = 11;
     this.comboHeat = 0;
     this.lastMult = 1;
-    this.pos = 1;
     this.laneIdx = 1;
     this.leftDown = false;
     this.rightDown = false;
-    this.rivals = RIVALS.map((r) => ({
-      name: r.name,
-      color: r.color,
-      lane: r.lane,
-      offset: (r.baseSpeed - SPEED_BASE) * 2,
-      dist: r.baseSpeed * 3,
-      speed: r.baseSpeed,
-      baseSpeed: r.baseSpeed,
-      passed: false,
-      y: -30,
-    }));
-    this.setBanner("YARIŞ BAŞLADI!", "3 ŞERİTTE RAKİPLERİ GEÇ");
+    this.setBanner("YARIŞ BAŞLADI!", "3 ŞERİTTEN GEÇ");
   }
 
   protected resetIdle(): void {
     this.gates = [];
     this.orbs = [];
     this.traffic = [];
-    this.rivals = [];
     this.player = this.makePlayer();
     this.player.y = this.H * PLAYER_Y;
   }
@@ -201,12 +164,6 @@ export class StormMode extends BaseMode {
       this.surge = 0;
     }
 
-    // Pass-streak decay
-    if (this.passStreakTimer > 0) {
-      this.passStreakTimer -= dt;
-      if (this.passStreakTimer <= 0) this.passStreak = 0;
-    }
-
     // Combo heat decay + multiplier-up feedback
     if (this.comboHeat > 0) this.comboHeat = Math.max(0, this.comboHeat - 11 * dt);
     const mult = this.multiplier();
@@ -234,7 +191,6 @@ export class StormMode extends BaseMode {
     const ratio = this.speed / SPEED_BASE;
     this.distance += this.speed * dt;
 
-    this.updateRivals(dt);
     this.distTick += dt;
     if (this.distTick >= 0.25) {
       this.distTick -= 0.25;
@@ -391,52 +347,6 @@ export class StormMode extends BaseMode {
     this.orbs = this.orbs.filter((o) => o.alive);
   }
 
-  private updateRivals(dt: number): void {
-    const p = this.player;
-    const laneXs = this.laneXs();
-    for (const r of this.rivals) {
-      // Rivals hold a steady pace; the race is won by squeezing speed from
-      // gates/orbs/nitro, not by rivals slowing down each lap.
-      r.speed = r.baseSpeed + (this.lap - 1) * 2;
-      r.dist += r.speed * dt;
-      // Rivals drive ahead of player; show them if not overtaken yet
-      r.y = p.y - (r.dist - this.distance) * 1.3;
-      // passed when their screen y crosses the player's fixed y
-      if (!r.passed && r.y >= p.y) {
-        r.passed = true;
-        this.passStreak++;
-        this.passStreakTimer = 3;
-        const bonus = 300 + (this.passStreak - 1) * 150;
-        this.bumpScore(bonus);
-        this.nitro = Math.min(NITRO_MAX, this.nitro + 30);
-        this.bumpCombo();
-        this.addComboHeat(16);
-        const streak = this.passStreak > 1;
-        this.addPopup(
-          laneXs[r.lane],
-          p.y - 20,
-          streak ? `SERİ ${this.passStreak}x +${bonus}` : `GEÇİLDİ +${bonus}`,
-          "#3dffa0",
-          streak ? 19 : 16,
-        );
-        this.addHitStop(0.03);
-        this.vibrate(20 + this.passStreak * 4);
-        this.shake = Math.min(14, this.shake + 4 + this.passStreak);
-        this.flash = Math.max(this.flash, 0.2);
-        this.audio.powerup();
-      }
-      // Draft: rival just ahead in the lane directly in front
-      if (!r.passed && Math.abs(r.dist - this.distance) < 30 && Math.abs(r.y - p.y) < 20) {
-        this.nitro = Math.min(NITRO_MAX, this.nitro + 22 * dt);
-      }
-    }
-    const rank: { dist: number; player?: boolean }[] = [{ dist: this.distance, player: true }];
-    for (const r of this.rivals) rank.push({ dist: r.dist });
-    rank.sort((a, b) => b.dist - a.dist);
-    this.pos = rank.findIndex((x) => x.player) + 1;
-    if (this.pos < 1) this.pos = 1;
-  }
-
   protected bumpScore(n: number): void {
     super.bumpScore(Math.round(n * this.multiplier()));
   }
@@ -587,7 +497,6 @@ export class StormMode extends BaseMode {
     for (const g of this.gates) this.drawGate(ctx, g);
     for (const o of this.orbs) this.drawOrb(ctx, o);
     for (const t of this.traffic) this.drawTraffic(ctx, t);
-    for (const r of this.rivals) this.drawRival(ctx, r);
     this.drawAfterimage(ctx);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time);
     this.drawHud(ctx);
@@ -669,81 +578,6 @@ export class StormMode extends BaseMode {
     ctx.beginPath();
     ctx.arc(0, 0, (o.gold ? 11 : 8) * (0.8 + pulse * 0.4), 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
-  }
-
-  private drawRival(ctx: CanvasRenderingContext2D, r: Rival): void {
-    const x = this.lanePos(r.lane);
-    const y = r.y;
-    if (y < -60 || y > this.H + 60) return;
-    const wob = Math.sin(this.time * 5 + r.speed) * 0.03;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(wob);
-    ctx.shadowColor = r.color;
-    ctx.shadowBlur = 12;
-
-    // rear engine glow
-    ctx.globalAlpha = 0.7 + 0.3 * Math.sin(this.time * 12 + r.speed);
-    ctx.fillStyle = r.color;
-    ctx.beginPath();
-    ctx.moveTo(-5, 15);
-    ctx.lineTo(0, 26);
-    ctx.lineTo(5, 15);
-    ctx.closePath();
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    // wings
-    ctx.fillStyle = r.color;
-    ctx.beginPath();
-    ctx.moveTo(-6, 0);
-    ctx.lineTo(-24, 10);
-    ctx.lineTo(-8, 6);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(6, 0);
-    ctx.lineTo(24, 10);
-    ctx.lineTo(8, 6);
-    ctx.closePath();
-    ctx.fill();
-
-    // fuselage
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = "#23273a";
-    ctx.beginPath();
-    ctx.moveTo(0, -20);
-    ctx.lineTo(8, -2);
-    ctx.lineTo(6, 14);
-    ctx.lineTo(-6, 14);
-    ctx.lineTo(-8, -2);
-    ctx.closePath();
-    ctx.fill();
-
-    // cockpit canopy
-    ctx.fillStyle = "#9be8ff";
-    ctx.globalAlpha = 0.9;
-    ctx.beginPath();
-    ctx.moveTo(0, -16);
-    ctx.lineTo(4, -6);
-    ctx.lineTo(-4, -6);
-    ctx.closePath();
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    // wingtip lights
-    ctx.fillStyle = r.color;
-    ctx.fillRect(-24, 8, 3, 3);
-    ctx.fillRect(21, 8, 3, 3);
-
-    ctx.restore();
-
-    ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.55)";
-    ctx.font = "bold 8px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(r.name, x, y + 34);
     ctx.restore();
   }
 
@@ -892,12 +726,6 @@ export class StormMode extends BaseMode {
     ctx.font = "bold 13px system-ui, sans-serif";
     ctx.textAlign = "right";
     ctx.fillText(`${Math.round(this.speed)} h`, this.W - 14, 20);
-
-    const rankLabel = ["1.", "2.", "3.", "4."][Math.min(this.pos - 1, 3)];
-    ctx.fillStyle = this.pos === 1 ? "#ffd166" : "#fff";
-    ctx.font = "bold 16px system-ui, sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText(`${rankLabel}`, bx, 40);
 
     ctx.fillStyle = "rgba(255,255,255,0.9)";
     ctx.font = "bold 11px system-ui, sans-serif";
