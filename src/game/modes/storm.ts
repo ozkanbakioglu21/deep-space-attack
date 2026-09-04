@@ -55,7 +55,6 @@ export class StormMode extends BaseMode {
   private speed = SPEED_BASE;
   private nitro = 0;
   private boosting = false;
-  private boostTimer = 0;
   private countdown = 0;
   private surge = 0;
   private surgeTimer = 14;
@@ -99,7 +98,6 @@ export class StormMode extends BaseMode {
     this.speed = SPEED_BASE;
     this.nitro = 0;
     this.boosting = false;
-    this.boostTimer = 0;
     this.countdown = 3.0;
     this.surge = 0;
     this.surgeTimer = 0;
@@ -109,6 +107,7 @@ export class StormMode extends BaseMode {
     this.laneIdx = 1;
     this.leftDown = false;
     this.rightDown = false;
+    this.wasTurboHeld = false;
     this.setBanner("YARIŞ BAŞLADI!", "3 ŞERİTTEN GEÇ");
   }
 
@@ -122,7 +121,7 @@ export class StormMode extends BaseMode {
 
   protected updateSub(dt: number): void {
     this.updateLane(dt);
-    this.spawnThruster(this.boosting ? "#7cf9ff" : this.surge > 0 ? "#ffd166" : "#ffcf8a");
+    this.spawnThruster(this.boosting ? "#ff6a1a" : this.surge > 0 ? "#ffd166" : "#ffcf8a");
 
     const p = this.player;
     if (p.invincible > 0) p.invincible -= dt;
@@ -177,13 +176,24 @@ export class StormMode extends BaseMode {
     }
     this.lastMult = mult;
 
-    // Nitro boost
-    if (this.boosting && this.boostTimer > 0) {
-      this.boostTimer -= dt;
-      if (this.boostTimer <= 0) this.boosting = false;
-      this.speed = Math.min(SPEED_MAX + 60, this.speed + 60);
-      this.shake = Math.min(14, this.shake + 10);
+    // Turbo: hold (Tab / button) drains the ring to zero while accelerating
+    const turboHeld = this.keys.has("tab") || this.turboBtn;
+    if (turboHeld && !this.wasTurboHeld && this.countdown <= 0) {
+      this.addPopup(this.player.x, this.player.y - 30, "TURBO!", "#7cf9ff", 18);
+      this.audio.boost();
+      this.shake = Math.min(14, this.shake + 6);
+    }
+    this.wasTurboHeld = turboHeld;
+    const turboActive = turboHeld && this.nitro > 0 && this.countdown <= 0;
+    if (turboActive) {
+      this.boosting = true;
+      this.nitro = Math.max(0, this.nitro - 42 * dt);
+      this.speed = Math.min(SPEED_MAX + 90, this.speed + 85 * dt);
+      this.shake = Math.min(13, this.shake + 8);
+      if (this.nitro <= 0) this.boosting = false;
     } else {
+      this.boosting = false;
+      this.nitro = Math.min(NITRO_MAX, this.nitro + 6 * dt);
       const paceFloor = SPEED_BASE + Math.min(60, this.distance * 0.045);
       this.speed = Math.max(paceFloor, this.speed - SPEED_DECAY * dt);
     }
@@ -310,7 +320,7 @@ export class StormMode extends BaseMode {
         const boost = g.gold ? 18 : 10;
         this.speed = Math.min(SPEED_MAX, this.speed + boost);
         this.bumpScore(g.gold ? 250 : 0);
-        this.addPopup(centerX, g.y - 18, g.gold ? `ALTIN HALKAYA! +${boost}` : `NİTRO +40`, g.gold ? "#ffd166" : "#9be8ff", g.gold ? 16 : 14);
+        this.addPopup(centerX, g.y - 18, g.gold ? `ALTIN HALKAYA! +${boost}` : `TURBO +40`, g.gold ? "#ffd166" : "#9be8ff", g.gold ? 16 : 14);
         this.explode(centerX, g.y, g.gold ? "#ffd166" : "#9be8ff", 12, 4, 100);
         this.audio.powerup();
         this.addHitStop(0.025);
@@ -336,7 +346,7 @@ export class StormMode extends BaseMode {
         o.alive = false;
         this.nitro = Math.min(NITRO_MAX, this.nitro + (o.gold ? 30 : 14));
         this.bumpScore(o.gold ? 150 : 40);
-        this.addPopup(centerX, o.y, o.gold ? `ALTIN +NİTRO` : `+40`, o.gold ? "#ffd166" : "#8dffb0", o.gold ? 16 : 13);
+        this.addPopup(centerX, o.y, o.gold ? `ALTIN +TURBO` : `+40`, o.gold ? "#ffd166" : "#8dffb0", o.gold ? 16 : 13);
         this.explode(centerX, o.y, o.gold ? "#ffd166" : "#8dffb0", 8, 4, 80);
         this.audio.powerup();
         this.vibrate(o.gold ? 18 : 10);
@@ -367,7 +377,8 @@ export class StormMode extends BaseMode {
 
   private leftDown = false;
   private rightDown = false;
-  private tabDown = false;
+  private turboBtn = false;
+  private wasTurboHeld = false;
 
   private updateLane(dt: number): void {
     // Edge-triggered arrow keys: one lane per fresh key press
@@ -377,10 +388,6 @@ export class StormMode extends BaseMode {
     if (right && !this.rightDown) this.requestLane(this.laneIdx + 1);
     this.leftDown = left;
     this.rightDown = right;
-    const tab = this.keys.has("tab");
-    if (tab && !this.tabDown) this.tryBoost();
-    this.tabDown = tab;
-    this.runHold(this.swipeActive, dt);
     if (this.pointerLaneTarget !== null && this.pointerLaneTarget !== this.laneIdx) {
       this.laneIdx = this.pointerLaneTarget;
       this.pointerLaneTarget = null;
@@ -400,15 +407,13 @@ export class StormMode extends BaseMode {
   private swipeActive = false;
   private swipeDone = false;
   private tapX = 0;
-  private holdTimer = 0;
-  private boostFired = false;
 
   protected onPointerDownHook(): void {
     const b = this.boostBtn();
     if (Math.hypot(this.pointerX - b.x, this.pointerY - b.y) <= b.r + 6) {
       this.tapX = -1;
       this.swipeActive = false;
-      this.tryBoost();
+      this.turboBtn = true;
       return;
     }
     this.swipeStartX = this.pointerX;
@@ -416,8 +421,6 @@ export class StormMode extends BaseMode {
     this.swipeActive = true;
     this.swipeDone = false;
     this.pointerLaneTarget = null;
-    this.holdTimer = 0;
-    this.boostFired = false;
   }
 
   // Hook called on pointer move while down
@@ -438,21 +441,11 @@ export class StormMode extends BaseMode {
 
   protected onPointerUpHook(): void {
     this.swipeActive = false;
+    this.turboBtn = false;
     // Plain tap: change one lane toward the tapped half of the screen.
-    if (!this.boostFired && this.pointerLaneTarget === null && this.tapX >= 0) {
+    if (this.pointerLaneTarget === null && this.tapX >= 0) {
       if (this.tapX < this.W / 2) this.requestLane(this.laneIdx - 1);
       else this.requestLane(this.laneIdx + 1);
-    }
-  }
-
-  // Long-press (no swipe) fires NİTRO boost — called each frame while holding.
-  private runHold(inputDown: boolean, dt: number): void {
-    if (inputDown && this.tapX >= 0 && !this.boostFired) {
-      this.holdTimer += dt;
-      if (this.holdTimer >= 0.35) {
-        this.boostFired = true;
-        this.tryBoost();
-      }
     }
   }
 
@@ -462,18 +455,6 @@ export class StormMode extends BaseMode {
 
   private laneXs(): number[] {
     return [0, 1, 2].map((i) => this.lanePos(i));
-  }
-
-  private tryBoost(): void {
-    if (this.countdown > 0) return;
-    if (this.nitro >= 25 && !this.boosting) {
-      this.boosting = true;
-      this.boostTimer = 0.8;
-      this.nitro -= 25;
-      this.audio.boost();
-      this.addPopup(this.player.x, this.player.y - 30, "NİTRO!", "#7cf9ff", 18);
-      this.shake = Math.min(14, this.shake + 8);
-    }
   }
 
   private boostBtn(): { x: number; y: number; r: number } {
@@ -517,7 +498,7 @@ export class StormMode extends BaseMode {
     ctx.fillStyle = ready ? "#7cf9ff" : "rgba(255,255,255,0.6)";
     ctx.font = "bold 9px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("NİTRO / TAB", b.x, b.y + b.r + 13);
+    ctx.fillText("TURBO / TAB", b.x, b.y + b.r + 13);
     ctx.restore();
   }
 
@@ -555,7 +536,7 @@ export class StormMode extends BaseMode {
     for (const o of this.orbs) this.drawOrb(ctx, o);
     for (const t of this.traffic) this.drawTraffic(ctx, t);
     this.drawAfterimage(ctx);
-    if (this.player.alive) paintPlayer(ctx, this.player, this.time);
+    if (this.player.alive) paintPlayer(ctx, this.player, this.time, this.boosting);
     this.drawHud(ctx);
     this.drawBoostButton(ctx);
     this.drawCountdown(ctx);
@@ -778,7 +759,7 @@ export class StormMode extends BaseMode {
     ctx.fillStyle = ready ? "#7cf9ff" : "rgba(255,255,255,0.8)";
     ctx.font = "bold 10px system-ui, sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText(ready ? "NİTRO HAZIR" : "NİTRO", bx, by - 5);
+    ctx.fillText(ready ? "TURBO HAZIR" : "TURBO", bx, by - 5);
 
     ctx.fillStyle = "#fff";
     ctx.font = "bold 13px system-ui, sans-serif";

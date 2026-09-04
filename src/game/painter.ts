@@ -89,9 +89,10 @@ export function paintPlayer(
   ctx: CanvasRenderingContext2D,
   p: PlayerState,
   time: number,
+  boosting = false,
 ): void {
   const blink = p.invincible > 0 && Math.floor(time * 14) % 2 === 0;
-  const flicker = 5 + Math.random() * 6;
+  const flicker = 5 + Math.random() * (6 + (boosting ? 14 : 0));
   const y = p.y + Math.sin(time * 4) * 2;
 
   ctx.save();
@@ -100,17 +101,30 @@ export function paintPlayer(
   if (blink) ctx.globalAlpha = 0.35;
 
   const afterburner = p.rapid > 0 ? 14 : 0;
-  const flame = ctx.createLinearGradient(0, p.h * 0.42, 0, p.h * 0.42 + flicker + 8 + afterburner);
-  flame.addColorStop(0, "rgba(255,180,60,0.95)");
-  flame.addColorStop(0.55, "rgba(255,90,40,0.7)");
-  flame.addColorStop(1, "rgba(255,60,60,0)");
+  const turbo = boosting ? 48 : 0;
+  const flameW = 6 + (boosting ? 4 : 0);
+  const flameLen = flicker + 8 + afterburner + turbo;
+  const flame = ctx.createLinearGradient(0, p.h * 0.42, 0, p.h * 0.42 + flameLen + 2);
+  if (boosting) {
+    flame.addColorStop(0, "rgba(255,255,255,0.98)");
+    flame.addColorStop(0.3, "rgba(255,225,90,0.95)");
+    flame.addColorStop(0.65, "rgba(255,120,30,0.8)");
+    flame.addColorStop(1, "rgba(255,50,40,0)");
+  } else {
+    flame.addColorStop(0, "rgba(255,180,60,0.95)");
+    flame.addColorStop(0.55, "rgba(255,90,40,0.7)");
+    flame.addColorStop(1, "rgba(255,60,60,0)");
+  }
   ctx.fillStyle = flame;
+  ctx.shadowColor = boosting ? "rgba(255,120,30,0.9)" : "rgba(0,0,0,0)";
+  ctx.shadowBlur = boosting ? 18 : 0;
   ctx.beginPath();
-  ctx.moveTo(-6, p.h * 0.42);
-  ctx.lineTo(0, p.h * 0.42 + flicker + 10 + afterburner);
-  ctx.lineTo(6, p.h * 0.42);
+  ctx.moveTo(-flameW, p.h * 0.42);
+  ctx.lineTo(0, p.h * 0.42 + flameLen);
+  ctx.lineTo(flameW, p.h * 0.42);
   ctx.closePath();
   ctx.fill();
+  ctx.shadowBlur = 0;
 
   const body = ctx.createLinearGradient(0, -p.h / 2, 0, p.h / 2);
   body.addColorStop(0, "#dffcff");

@@ -22,16 +22,16 @@ export const MODES: ModeMeta[] = [
 {
       id: "storm",
       name: "METEOR YARIŞI",
-      tagline: "Yarış: nitro topla, enerji halkalarından geç, uzay gemilerinden sıyrıl ve KOMBO çarpanını büyüt.",
+      tagline: "Yarış: turbo topla, enerji halkalarından geç, uzay gemilerinden sıyrıl ve KOMBO çarpanını büyüt.",
       accent: "#ff9f43",
       hud: { showLevel: true, showCombo: true, levelLabel: "Tür", scoreLabel: "Mesafe" },
       controls: [
         "3 şerit: sola/sağa kaydır ya da ok tuşları (A/D) ile araç şerit değiştirsin.",
         "Araç şeritte sabittir; pist ona doğru akar.",
         "Yoldaki uzay gemilerine çarpma: şerit değiştirerek kaç, sıyırarak geç (YAKIN! bonusu).",
-        "Enerji halkalarından (chevron) geç ve ALTIN küreleri topla → NİTRO dolar.",
+        "Enerji halkalarından (chevron) geç ve ALTIN küreleri topla → TURBO dolar.",
         "Yakın geçiş + halka + toplarla KOMBO ısısı biriktir; skor x5 çarpanına ulaş.",
-        "NİTRO dolunca sağ alttaki NİTRO butonuna dokun ya da Tab tuşuna bas → hız + skor katlansın.",
+        "Sağ alttaki TURBO butonuna basılı tut ya da Tab tuşuna basılı tut → çember boşalana kadar hızlan, arkadan alev büyür.",
       ],
     },
     {
