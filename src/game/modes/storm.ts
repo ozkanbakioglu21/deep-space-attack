@@ -367,6 +367,7 @@ export class StormMode extends BaseMode {
 
   private leftDown = false;
   private rightDown = false;
+  private tabDown = false;
 
   private updateLane(dt: number): void {
     // Edge-triggered arrow keys: one lane per fresh key press
@@ -376,6 +377,9 @@ export class StormMode extends BaseMode {
     if (right && !this.rightDown) this.requestLane(this.laneIdx + 1);
     this.leftDown = left;
     this.rightDown = right;
+    const tab = this.keys.has("tab");
+    if (tab && !this.tabDown) this.tryBoost();
+    this.tabDown = tab;
     this.runHold(this.swipeActive, dt);
     if (this.pointerLaneTarget !== null && this.pointerLaneTarget !== this.laneIdx) {
       this.laneIdx = this.pointerLaneTarget;
@@ -400,6 +404,13 @@ export class StormMode extends BaseMode {
   private boostFired = false;
 
   protected onPointerDownHook(): void {
+    const b = this.boostBtn();
+    if (Math.hypot(this.pointerX - b.x, this.pointerY - b.y) <= b.r + 6) {
+      this.tapX = -1;
+      this.swipeActive = false;
+      this.tryBoost();
+      return;
+    }
     this.swipeStartX = this.pointerX;
     this.tapX = this.pointerX;
     this.swipeActive = true;
@@ -454,6 +465,7 @@ export class StormMode extends BaseMode {
   }
 
   private tryBoost(): void {
+    if (this.countdown > 0) return;
     if (this.nitro >= 25 && !this.boosting) {
       this.boosting = true;
       this.boostTimer = 0.8;
@@ -462,6 +474,51 @@ export class StormMode extends BaseMode {
       this.addPopup(this.player.x, this.player.y - 30, "NİTRO!", "#7cf9ff", 18);
       this.shake = Math.min(14, this.shake + 8);
     }
+  }
+
+  private boostBtn(): { x: number; y: number; r: number } {
+    return { x: this.W - 48, y: this.H - 66, r: 32 };
+  }
+
+  private drawBoostButton(ctx: CanvasRenderingContext2D): void {
+    const b = this.boostBtn();
+    const frac = clamp(this.nitro / NITRO_MAX, 0, 1);
+    const ready = this.nitro >= 25;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+    ctx.strokeStyle = ready ? "#7cf9ff" : "rgba(124,249,255,0.4)";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.stroke();
+    if (ready) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.time * 9);
+      ctx.globalAlpha = 0.25 + 0.35 * pulse;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r - 9, 0, Math.PI * 2);
+      ctx.fillStyle = "#7cf9ff";
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = ready ? "#04121a" : "rgba(255,255,255,0.8)";
+    ctx.beginPath();
+    ctx.moveTo(b.x + 3, b.y - 15);
+    ctx.lineTo(b.x - 8, b.y + 1);
+    ctx.lineTo(b.x - 1, b.y + 1);
+    ctx.lineTo(b.x - 4, b.y + 15);
+    ctx.lineTo(b.x + 8, b.y - 1);
+    ctx.lineTo(b.x + 1, b.y - 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = ready ? "#7cf9ff" : "rgba(255,255,255,0.6)";
+    ctx.font = "bold 9px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("NİTRO / TAB", b.x, b.y + b.r + 13);
+    ctx.restore();
   }
 
   private spawnGate(): void {
@@ -500,6 +557,7 @@ export class StormMode extends BaseMode {
     this.drawAfterimage(ctx);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time);
     this.drawHud(ctx);
+    this.drawBoostButton(ctx);
     this.drawCountdown(ctx);
   }
 

@@ -31,7 +31,7 @@ export const MODES: ModeMeta[] = [
         "Yoldaki uzay gemilerine çarpma: şerit değiştirerek kaç, sıyırarak geç (YAKIN! bonusu).",
         "Enerji halkalarından (chevron) geç ve ALTIN küreleri topla → NİTRO dolar.",
         "Yakın geçiş + halka + toplarla KOMBO ısısı biriktir; skor x5 çarpanına ulaş.",
-        "NİTRO dolunca dokun/boşluk → hız + skor katlansın.",
+        "NİTRO dolunca sağ alttaki NİTRO butonuna dokun ya da Tab tuşuna bas → hız + skor katlansın.",
       ],
     },
     {

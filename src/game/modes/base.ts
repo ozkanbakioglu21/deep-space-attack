@@ -477,6 +477,7 @@ export abstract class BaseMode implements GameAdapter {
   };
 
   private onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === "Tab" || e.key === " ") e.preventDefault();
     this.keys.add(e.key.toLowerCase());
   };
 
