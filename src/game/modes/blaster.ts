@@ -7,6 +7,21 @@ import { BaseMode } from "./base";
 const WAVE_TIME = 18;
 const GROUND_Y_OFFSET = 48;
 const AIM_SPEED = 5;
+const CHAIN_RADIUS = 96;
+const CHAIN_STAGGER = 0.075;
+const BIG_CHAIN = 5;
+const MAX_CHAIN = 48;
+
+type Ring = {
+  x: number;
+  y: number;
+  r: number;
+  maxR: number;
+  life: number;
+  maxLife: number;
+  color: string;
+  width: number;
+};
 
 export class BlasterMode extends BaseMode {
   private meteors: Enemy[] = [];
@@ -15,6 +30,16 @@ export class BlasterMode extends BaseMode {
   private spawnTimer = 0.9;
   private fireTimer = 0;
   private waveTimer = 0;
+
+  private rings: Ring[] = [];
+  private chainQueue: Array<{ x: number; y: number }> = [];
+  private chainTimer = 0;
+  private chainCount = 0;
+  private chainSlowDone = false;
+  private redFlash = 0;
+  private muzzle = 0;
+  private muzzleX = 0;
+  private muzzleY = 0;
 
   protected get palette(): ChapterDef {
     return {
@@ -40,6 +65,13 @@ export class BlasterMode extends BaseMode {
     super.startRun();
     this.meteors = [];
     this.bullets = [];
+    this.rings = [];
+    this.chainQueue = [];
+    this.chainTimer = 0;
+    this.chainCount = 0;
+    this.chainSlowDone = false;
+    this.redFlash = 0;
+    this.muzzle = 0;
     this.spawnTimer = 0.9;
     this.fireTimer = 0;
     this.waveTimer = 0;
@@ -51,6 +83,7 @@ export class BlasterMode extends BaseMode {
   protected resetIdle(): void {
     this.meteors = [];
     this.bullets = [];
+    this.rings = [];
     this.player = this.makePlayer();
   }
 
@@ -76,16 +109,16 @@ export class BlasterMode extends BaseMode {
     }
 
     const mult = 1 + (this.level - 1) * 0.1;
+    const groundY = this.H - GROUND_Y_OFFSET;
     for (const m of this.meteors) {
       m.rot += m.rotSpeed * dt;
       m.y += m.vy * dt;
       m.wobble += m.wobbleSpeed * dt;
       m.x = m.baseX + Math.sin(m.wobble * 2) * 8 * mult;
-      if (m.y > this.H - GROUND_Y_OFFSET) {
+      if (m.flash > 0) m.flash = Math.max(0, m.flash - dt);
+      if (m.y >= groundY) {
         m.alive = false;
-        this.explode(m.x, this.H - GROUND_Y_OFFSET, "#ff9f43", 24, 12, 200);
-        this.shake = Math.min(14, this.shake + 7);
-        this.registerHit();
+        this.groundImpact(m);
       }
     }
 
@@ -98,12 +131,7 @@ export class BlasterMode extends BaseMode {
     for (const b of this.bullets) {
       b.x += b.vx * dt;
       b.y += b.vy * dt;
-      if (
-        b.x < -20 ||
-        b.x > this.W + 20 ||
-        b.y < -30 ||
-        b.y > this.H + 30
-      ) {
+      if (b.x < -20 || b.x > this.W + 20 || b.y < -30 || b.y > this.H + 30) {
         b.alive = false;
         continue;
       }
@@ -112,27 +140,38 @@ export class BlasterMode extends BaseMode {
         if (this.overlaps(b.x, b.y, b.w, b.h, m.x, m.y, m.w, m.h)) {
           b.alive = false;
           m.hp -= 1;
+          m.flash = 0.14;
           this.explode(b.x, b.y, "#ffd166", 6, 4, 90);
-          if (m.hp <= 0) {
-            m.alive = false;
-            const def = ENEMY_DEFS.meteor;
-            this.explode(m.x, m.y, "#ff9f43", 22, 11, 190);
-            this.bumpCombo();
-            const gain = Math.round(def.score * this.comboMul());
-            this.bumpScore(gain);
-            this.addPopup(m.x, m.y - 18, `+${gain}`, "#ffd166", 14);
-            this.audio.explosion();
-            this.addHitStop(0.035);
-            this.vibrate(12);
-            this.shake = Math.min(10, this.shake + 4);
-            this.chainBoom(m.x, m.y);
-          }
+          if (m.hp <= 0) this.killMeteor(m, false);
           break;
         }
       }
     }
+
+    if (this.chainQueue.length > 0) {
+      this.chainTimer -= dt;
+      while (this.chainTimer <= 0 && this.chainQueue.length > 0) {
+        const pos = this.chainQueue.shift();
+        if (!pos) break;
+        this.blast(pos.x, pos.y);
+        this.chainTimer += CHAIN_STAGGER;
+      }
+    } else {
+      this.chainCount = 0;
+      this.chainSlowDone = false;
+    }
+
     this.meteors = this.meteors.filter((m) => m.alive && m.y < this.H + 100);
     this.bullets = this.bullets.filter((b) => b.alive);
+
+    for (const r of this.rings) {
+      r.life -= dt;
+      r.r += (r.maxR - r.r) * Math.min(1, dt * 9);
+    }
+    this.rings = this.rings.filter((r) => r.life > 0);
+
+    if (this.redFlash > 0) this.redFlash = Math.max(0, this.redFlash - dt * 2.4);
+    if (this.muzzle > 0) this.muzzle = Math.max(0, this.muzzle - dt);
 
     this.waveTimer += dt;
     if (this.waveTimer >= WAVE_TIME) {
@@ -157,6 +196,9 @@ export class BlasterMode extends BaseMode {
       dy /= dist;
     }
     this.audio.shoot();
+    this.muzzle = 0.06;
+    this.muzzleX = p.x + dx * 22;
+    this.muzzleY = p.y + dy * 22 - 10;
     this.bullets.push({
       id: this.nextId++,
       x: p.x + dx * 20,
@@ -198,67 +240,217 @@ export class BlasterMode extends BaseMode {
     });
   }
 
-  private chainBoom(x: number, y: number): void {
-    const radius = 96;
-    const stack: Array<{ x: number; y: number }> = [{ x, y }];
-    let chains = 0;
-    while (stack.length > 0 && chains < 14) {
-      const pos = stack.pop();
-      if (!pos) break;
-      for (const m of this.meteors) {
-        if (!m.alive) continue;
-        if (Math.hypot(m.x - pos.x, m.y - pos.y) <= radius) {
-          m.hp -= 1;
-          this.explode(m.x, m.y, "#ffd166", 6, 4, 90);
-          if (m.hp <= 0) {
-            m.alive = false;
-            chains++;
-            const gain = Math.round(15 * this.comboMul());
-            this.bumpScore(gain);
-            this.addPopup(m.x, m.y - 16, `ZİNCİR +${gain}`, "#ffe08a", 13);
-            stack.push({ x: m.x, y: m.y });
-          }
-        }
-      }
+  private killMeteor(m: Enemy, byChain: boolean): void {
+    m.alive = false;
+    const def = ENEMY_DEFS.meteor;
+    this.explode(m.x, m.y, "#ff9f43", 22, 11, 190);
+    this.addRing(m.x, m.y, "#ffd166", 60, 3);
+    this.bumpCombo();
+    this.chainCount += 1;
+    const base = byChain ? 25 : def.score;
+    const gain = Math.round(base * this.comboMul());
+    this.bumpScore(gain);
+    this.addPopup(m.x, m.y - 18, byChain ? `ZİNCİR +${gain}` : `+${gain}`, byChain ? "#ffe08a" : "#ffd166", 14);
+    const big = this.chainCount >= BIG_CHAIN;
+    if (big && !this.chainSlowDone) {
+      this.chainSlowDone = true;
+      this.addHitStop(0.32);
+      this.setBanner(`ZİNCİRLER x${this.chainCount}!`, "GÖKTAŞLAR ZİNCİRLE PATLIYOR");
+      this.audio.combo(3);
     }
-    if (chains > 0) {
-      this.audio.explosion();
-      this.addHitStop(0.04);
-      this.vibrate(18);
+    this.audio.explosion(big);
+    this.addHitStop(big ? 0.05 : 0.035);
+    this.vibrate(big ? 24 : 12);
+    this.shake = Math.min(18, this.shake + (big ? 6 : 4));
+    if (this.chainQueue.length < MAX_CHAIN) {
+      this.chainQueue.push({ x: m.x, y: m.y });
+      this.chainTimer = 0;
     }
   }
 
+  private blast(x: number, y: number): void {
+    for (const m of this.meteors) {
+      if (!m.alive) continue;
+      if (Math.hypot(m.x - x, m.y - y) <= CHAIN_RADIUS) {
+        m.hp -= 1;
+        m.flash = 0.16;
+        this.explode(m.x, m.y, "#ffd166", 6, 4, 90);
+        if (m.hp <= 0) this.killMeteor(m, true);
+      }
+    }
+  }
+
+  private groundImpact(m: Enemy): void {
+    const groundY = this.H - GROUND_Y_OFFSET;
+    this.explode(m.x, groundY, "#ff6a2a", 26, 12, 210);
+    this.addRing(m.x, groundY, "#ff5a2a", 96, 4);
+    this.redFlash = 1;
+    this.shake = Math.min(20, this.shake + 9);
+    this.audio.explosion(true);
+    this.registerHit();
+  }
+
+  private addRing(x: number, y: number, color: string, maxR: number, width: number): void {
+    this.rings.push({ x, y, r: 6, maxR, life: 0.5, maxLife: 0.5, color, width });
+  }
+
   protected renderEntities(ctx: CanvasRenderingContext2D): void {
-    if (this.hasPointer) {
-      const p = this.player;
-      const dx = this.pointerX - p.x;
-      const dy = this.pointerY - p.y - 10;
-      const dist = Math.hypot(dx, dy) || 1;
-      const len = Math.min(180, dist);
-      const tx = p.x + (dx / dist) * len;
-      const ty = p.y + (dy / dist) * len - 10;
-      const txWorld = p.x + (dx / dist) * 20;
-      const tyWorld = p.y + (dy / dist) * 20 - 10;
-      ctx.save();
-      ctx.globalAlpha = 0.10 + 0.05 * Math.sin(this.time * 6);
-      ctx.strokeStyle = "#b18cff";
-      ctx.lineWidth = 2;
-      ctx.shadowColor = "#b18cff";
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.moveTo(txWorld, tyWorld);
-      ctx.lineTo(tx, ty);
-      ctx.stroke();
-      ctx.globalAlpha = 0.45;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(tx, ty, 7, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+    const groundY = this.H - GROUND_Y_OFFSET;
+    this.drawGroundLine(ctx, groundY);
+    this.drawAim(ctx);
+    for (const m of this.meteors) this.drawTrajectory(ctx, m, groundY);
+    for (const r of this.rings) this.drawRing(ctx, r);
+    for (const m of this.meteors) {
+      paintEnemy(ctx, m, this.time);
+      if (m.flash > 0) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(0.55, m.flash * 4);
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.w * 0.52, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
     }
     for (const b of this.bullets) paintBullet(ctx, b);
-    for (const m of this.meteors) paintEnemy(ctx, m, this.time);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time);
+    if (this.muzzle > 0) this.drawMuzzle(ctx);
+    this.drawFever(ctx);
+    if (this.redFlash > 0) {
+      const g = ctx.createRadialGradient(this.W / 2, this.H * 0.5, this.H * 0.25, this.W / 2, this.H * 0.5, this.H * 0.75);
+      g.addColorStop(0, "rgba(255,40,20,0)");
+      g.addColorStop(1, `rgba(255,40,20,${(this.redFlash * 0.5).toFixed(3)})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, this.W, this.H);
+    }
+  }
+
+  private drawGroundLine(ctx: CanvasRenderingContext2D, groundY: number): void {
+    ctx.save();
+    const grad = ctx.createLinearGradient(0, groundY - 14, 0, this.H);
+    grad.addColorStop(0, "rgba(255,80,50,0)");
+    grad.addColorStop(1, "rgba(255,80,50,0.14)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, groundY - 14, this.W, this.H - (groundY - 14));
+    ctx.strokeStyle = "rgba(255,90,50,0.5)";
+    ctx.lineWidth = 2;
+    ctx.shadowColor = "#ff5a32";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    ctx.lineTo(this.W, groundY);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private drawAim(ctx: CanvasRenderingContext2D): void {
+    if (!this.hasPointer) return;
+    const p = this.player;
+    const dx = this.pointerX - p.x;
+    const dy = this.pointerY - p.y - 10;
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const len = Math.min(190, dist);
+    const tx = p.x + nx * len;
+    const ty = p.y + ny * len - 10;
+    const txWorld = p.x + nx * 20;
+    const tyWorld = p.y + ny * 20 - 10;
+    const heat = this.comboMul();
+    const color = heat >= 4 ? "#ff5a32" : heat >= 3 ? "#ffd15c" : "#b18cff";
+    ctx.save();
+    ctx.globalAlpha = 0.1 + 0.05 * Math.sin(this.time * 6) + (heat - 1) * 0.03;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2 + (heat - 1) * 0.6;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(txWorld, tyWorld);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    const rr = 8 + (heat - 1) * 1.5;
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(tx, ty, rr, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.7;
+    const a = this.time * 3;
+    for (let i = 0; i < 4; i++) {
+      const t = a + (i * Math.PI) / 2;
+      ctx.beginPath();
+      ctx.moveTo(tx + Math.cos(t) * (rr + 3), ty + Math.sin(t) * (rr + 3));
+      ctx.lineTo(tx + Math.cos(t) * (rr + 8), ty + Math.sin(t) * (rr + 8));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  private drawTrajectory(ctx: CanvasRenderingContext2D, m: Enemy, groundY: number): void {
+    const danger = m.y > this.H * 0.45 || m.hp >= 3;
+    const color = danger ? "255,150,60" : "150,150,190";
+    const alpha = danger ? 0.22 : 0.08;
+    ctx.save();
+    ctx.strokeStyle = `rgba(${color},${alpha.toFixed(3)})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 7]);
+    ctx.beginPath();
+    ctx.moveTo(m.x, m.y + m.h * 0.4);
+    ctx.lineTo(m.x, groundY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 10);
+    const s = 7 + pulse * 3;
+    ctx.strokeStyle = `rgba(${color},${(alpha + 0.25).toFixed(3)})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(m.x, groundY - s);
+    ctx.lineTo(m.x - s, groundY);
+    ctx.lineTo(m.x + s, groundY);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private drawRing(ctx: CanvasRenderingContext2D, r: Ring): void {
+    const a = Math.max(0, r.life / r.maxLife);
+    ctx.save();
+    ctx.globalAlpha = a * 0.7;
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = r.width * a + 0.5;
+    ctx.shadowColor = r.color;
+    ctx.shadowBlur = 12 * a;
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private drawMuzzle(ctx: CanvasRenderingContext2D): void {
+    const a = this.muzzle / 0.06;
+    ctx.save();
+    ctx.globalAlpha = a * 0.9;
+    const grad = ctx.createRadialGradient(this.muzzleX, this.muzzleY, 0, this.muzzleX, this.muzzleY, 16);
+    grad.addColorStop(0, "rgba(255,240,180,0.9)");
+    grad.addColorStop(1, "rgba(255,180,80,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(this.muzzleX, this.muzzleY, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  private drawFever(ctx: CanvasRenderingContext2D): void {
+    const heat = this.comboMul();
+    if (heat < 3) return;
+    const k = Math.min(1, (heat - 2) / 3);
+    const a = (0.1 + 0.06 * Math.sin(this.time * 4)) * k;
+    const color = heat >= 4 ? "255,90,42" : "255,180,60";
+    const g = ctx.createRadialGradient(this.W / 2, this.H, this.H * 0.2, this.W / 2, this.H, this.H * 0.95);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(1, `rgba(${color},${a.toFixed(3)})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.W, this.H);
   }
 }
 
