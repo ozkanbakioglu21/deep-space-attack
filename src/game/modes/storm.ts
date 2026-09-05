@@ -63,6 +63,8 @@ export class StormMode extends BaseMode {
   private lastMult = 1;
   private lanes = 3;
   private laneIdx = 1; // start middle
+  private invertLeft = 0;
+  private invertCooldown = 8;
 
   protected get palette(): ChapterDef {
     return {
@@ -105,6 +107,8 @@ export class StormMode extends BaseMode {
     this.comboHeat = 0;
     this.lastMult = 1;
     this.laneIdx = 1;
+    this.invertLeft = 0;
+    this.invertCooldown = 8;
     this.leftDown = false;
     this.rightDown = false;
     this.wasTurboHeld = false;
@@ -140,6 +144,20 @@ export class StormMode extends BaseMode {
         this.shake = Math.min(12, this.shake + 8);
       }
       return;
+    }
+
+    // Inverted controls window (TERS TUR)
+    if (this.invertLeft > 0) {
+      this.invertLeft -= dt;
+    } else {
+      this.invertCooldown -= dt;
+      if (this.invertCooldown <= 0) {
+        this.invertLeft = 2.5;
+        this.invertCooldown = 9 + Math.random() * 5;
+        this.setBanner("TERS TUR!", "KONTROLLER TERS ÇEVİRİLDİ", 1.6);
+        this.audio.combo(2);
+        this.shake = Math.min(8, this.shake + 3);
+      }
     }
 
     // Photon storm: periodic surge of speed + score
@@ -399,7 +417,9 @@ export class StormMode extends BaseMode {
   }
 
   private requestLane(idx: number): void {
-    this.laneIdx = clamp(idx, 0, this.lanes - 1);
+    let dir = idx - this.laneIdx;
+    if (this.invertLeft > 0) dir = -dir;
+    this.laneIdx = clamp(this.laneIdx + dir, 0, this.lanes - 1);
   }
 
   private pointerLaneTarget: number | null = null;
@@ -431,11 +451,11 @@ export class StormMode extends BaseMode {
     if (dx < -24) {
       this.swipeDone = true;
       this.tapX = -1;
-      this.pointerLaneTarget = clamp(this.laneIdx - 1, 0, this.lanes - 1);
+      this.pointerLaneTarget = clamp(this.laneIdx + (this.invertLeft > 0 ? 1 : -1), 0, this.lanes - 1);
     } else if (dx > 24) {
       this.swipeDone = true;
       this.tapX = -1;
-      this.pointerLaneTarget = clamp(this.laneIdx + 1, 0, this.lanes - 1);
+      this.pointerLaneTarget = clamp(this.laneIdx + (this.invertLeft > 0 ? -1 : 1), 0, this.lanes - 1);
     }
   }
 
@@ -537,9 +557,43 @@ export class StormMode extends BaseMode {
     for (const t of this.traffic) this.drawTraffic(ctx, t);
     this.drawAfterimage(ctx);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time, this.boosting);
-    this.drawHud(ctx);
+this.drawHud(ctx);
     this.drawBoostButton(ctx);
     this.drawCountdown(ctx);
+    if (this.invertLeft > 0) this.drawInvert(ctx);
+  }
+
+  private drawInvert(ctx: CanvasRenderingContext2D): void {
+    const a = Math.min(1, this.invertLeft / 0.4);
+    ctx.save();
+    ctx.fillStyle = `rgba(255,60,150,${(0.1 * a).toFixed(3)})`;
+    ctx.fillRect(0, 0, this.W, this.H);
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = "#ff5fd0";
+    ctx.lineWidth = 3;
+    ctx.shadowColor = "#ff5fd0";
+    ctx.shadowBlur = 10;
+    const cy = this.H * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(30, cy);
+    ctx.lineTo(54, cy);
+    ctx.moveTo(46, cy - 8);
+    ctx.lineTo(54, cy);
+    ctx.lineTo(46, cy + 8);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(this.W - 30, cy);
+    ctx.lineTo(this.W - 54, cy);
+    ctx.moveTo(this.W - 46, cy - 8);
+    ctx.lineTo(this.W - 54, cy);
+    ctx.lineTo(this.W - 46, cy + 8);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#ff5fd0";
+    ctx.font = "700 15px Rajdhani, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("TERS!", this.W / 2, 84);
+    ctx.restore();
   }
 
   private drawTrack(ctx: CanvasRenderingContext2D): void {

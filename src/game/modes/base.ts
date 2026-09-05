@@ -43,6 +43,7 @@ export abstract class BaseMode implements GameAdapter {
   protected combo = 0;
   protected maxComboMult = 8;
   protected hitStop = 0;
+  protected clutch = 0;
   protected lastDt = 1 / 60;
 
   protected banner: string | null = null;
@@ -152,6 +153,10 @@ export abstract class BaseMode implements GameAdapter {
       this.hitStop -= dt;
       d = dt * 0.1;
     }
+    if (this.clutch > 0) {
+      this.clutch -= dt;
+      d *= 0.45;
+    }
     this.time += d;
     this.updateStars(d);
     this.updateParticles(d);
@@ -212,6 +217,14 @@ export abstract class BaseMode implements GameAdapter {
     ctx.restore();
     if (this.flash > 0) {
       ctx.fillStyle = `rgba(255,255,255,${(this.flash * 0.35).toFixed(3)})`;
+      ctx.fillRect(0, 0, this.W, this.H);
+    }
+    if (this.clutch > 0) {
+      const ca = Math.min(0.5, this.clutch) * 0.4;
+      const cg = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.32, this.W / 2, this.H / 2, this.H * 0.75);
+      cg.addColorStop(0, "rgba(90,180,255,0)");
+      cg.addColorStop(1, `rgba(90,180,255,${ca.toFixed(3)})`);
+      ctx.fillStyle = cg;
       ctx.fillRect(0, 0, this.W, this.H);
     }
     if (this.banner) paintBanner(ctx, this.W, this.H, this.banner, this.bannerTimer, this.bannerSub);
@@ -356,6 +369,7 @@ export abstract class BaseMode implements GameAdapter {
     this.explode(this.player.x, this.player.y, "#6ff3ff", 26, 11, 190);
     this.shake = Math.min(16, this.shake + 9);
     this.flash = 1;
+    this.clutch = Math.max(this.clutch, 0.55);
     this.vibrate(45);
     this.player.invincible = grace;
     this.resetCombo();
