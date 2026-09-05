@@ -77,7 +77,7 @@ function SoundIcon({ muted }: { muted: boolean }) {
 
 function ModeIcon({ id }: { id: ModeId }) {
   const glyph =
-    id === "flow" ? "➤" : id === "storm" ? "✧" : id === "gather" ? "✦" : "◎";
+    id === "flow" ? "➤" : "✧";
   return <span className="mode-icon" aria-hidden="true">{glyph}</span>;
 }
 
