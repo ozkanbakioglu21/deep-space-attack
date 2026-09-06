@@ -2,7 +2,9 @@ import { paintPlayer } from "../painter";
 import type { ChapterDef, GameCallbacks } from "../types";
 import { BaseMode } from "./base";
 
-const SPEED = 120;
+const SPEED_BASE = 90;
+const SPEED_MAX = 200;
+const SPEED_RAMP = 1.2;
 const LAP_DIST = 350;
 const PLAYER_Y = 0.82;
 const DIAMOND_POINTS = 50;
@@ -41,6 +43,7 @@ export class StormMode extends BaseMode {
   private distTick = 0;
   private distance = 0;
   private lap = 1;
+  private speed = SPEED_BASE;
   private countdown = 0;
   private comboHeat = 0;
   private lastMult = 1;
@@ -85,6 +88,7 @@ export class StormMode extends BaseMode {
     this.distTick = 0;
     this.distance = 0;
     this.lap = 1;
+    this.speed = SPEED_BASE;
     this.countdown = 3.0;
     this.comboHeat = 0;
     this.lastMult = 1;
@@ -153,12 +157,15 @@ export class StormMode extends BaseMode {
     }
     this.lastMult = mult;
 
+    // Speed ramp: gradually加速
+    this.speed = Math.min(SPEED_MAX, this.speed + SPEED_RAMP * dt);
+
     // Distance + score accumulation
-    this.distance += SPEED * dt;
+    this.distance += this.speed * dt;
     this.distTick += dt;
     if (this.distTick >= 0.25) {
       this.distTick -= 0.25;
-      this.bumpScore(Math.round(SPEED * 0.25));
+      this.bumpScore(Math.round(this.speed * 0.25));
     }
 
     // Lap progression
@@ -207,7 +214,7 @@ export class StormMode extends BaseMode {
     const laneXs = this.laneXs();
     for (const d of this.diamonds) {
       d.phase += 3 * dt;
-      d.y += 155 * dt;
+      d.y += this.speed * 1.3 * dt;
       const cx = laneXs[d.lane];
       if (d.y > this.H + 30) {
         d.alive = false;
@@ -296,7 +303,7 @@ export class StormMode extends BaseMode {
   private updateTraffic(dt: number): void {
     const p = this.player;
     const laneXs = this.laneXs();
-    const speed = 132;
+    const speed = this.speed * 1.1;
     for (const t of this.traffic) {
       t.y += speed * dt;
       const cx = laneXs[t.lane];
@@ -557,6 +564,9 @@ export class StormMode extends BaseMode {
     ctx.font = "bold 13px system-ui, sans-serif";
     ctx.textAlign = "right";
     ctx.fillText(`${Math.round(this.distance)}m`, this.W - 14, 20);
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = "bold 10px system-ui, sans-serif";
+    ctx.fillText(`${Math.round(this.speed)} h`, this.W - 14, 34);
 
     // Diamond count with icon
     ctx.textAlign = "left";
