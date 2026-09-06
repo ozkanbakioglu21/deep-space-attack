@@ -19,18 +19,17 @@ export const MODES: ModeMeta[] = [
   },
   {
     id: "storm",
-    name: "METEOR YARIŞI",
-    tagline: "Yarış: turbo topla, enerji halkalarından geç, uzay gemilerinden sıyrıl ve KOMBO çarpanını büyüt.",
+    name: "ELMAS YARIŞI",
+    tagline: "Trafikten kaç, elmasları topla ve KOMBO çarpanını büyüt.",
     accent: "#ff9f43",
     hud: { showLevel: true, showCombo: true, levelLabel: "Tür", scoreLabel: "Mesafe" },
-    controls: [
-      "3 şerit: sola/sağa kaydır ya da ok tuşları (A/D) ile araç şerit değiştirsin.",
-      "Araç şeritte sabittir; pist ona doğru akar.",
-      "Yoldaki uzay gemilerine çarpma: şerit değiştirerek kaç, sıyırarak geç (YAKIN! bonusu).",
-      "Enerji halkalarından (chevron) geç ve ALTIN küreleri topla → TURBO dolar.",
-      "Yakın geçiş + halka + toplarla KOMBO ısısı biriktir; skor x5 çarpanına ulaş.",
-      "Sağ alttaki TURBO butonuna basılı tut ya da Tab tuşuna basılı tut → çember boşalana kadar hızlan, arkadan alev büyür.",
-    ],
+      controls: [
+        "3 şerit: sola/sağa kaydır ya da ok tuşları (A/D) ile araç şerit değiştirsin.",
+        "Araç şeritte sabittir; pist ona doğru akar.",
+        "Yoldaki uzay gemilerine çarpma: şerit değiştirerek kaç, sıyırarak geç (YAKIN! bonusu).",
+        "Parlayan elmastan topla → skor kazan ve KOMBO oluştur.",
+        "Yakın geçiş + elmas toplamak KOMBO ısısı biriktir; skor x5 çarpanına ulaş.",
+      ],
   },
 ];
 
