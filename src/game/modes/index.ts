@@ -29,6 +29,7 @@ export const MODES: ModeMeta[] = [
         "Yoldaki uzay gemilerine çarpma: şerit değiştirerek kaç, sıyırarak geç (YAKIN! bonusu).",
         "Parlayan elmastan topla → skor kazan ve KOMBO oluştur.",
         "Yakın geçiş + elmas toplamak KOMBO ısısı biriktir; skor x5 çarpanına ulaş.",
+        "Sağ alttaki HIZ tuşu zamanla dolar; dolunca basınca kısa süre roket hızı ve arkandan alev!",
       ],
   },
 ];

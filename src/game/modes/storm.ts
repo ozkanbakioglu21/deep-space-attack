@@ -9,6 +9,10 @@ const LAP_DIST = 350;
 const PLAYER_Y = 0.82;
 const DIAMOND_POINTS = 50;
 const NEAR_MISS_POINTS = 40;
+const BOOST_MAX = 100;
+const BOOST_FILL = 11;
+const BOOST_DURATION = 2.5;
+const BOOST_SPEED = 130;
 
 interface Diamond {
   lane: number;
@@ -44,6 +48,8 @@ export class StormMode extends BaseMode {
   private distance = 0;
   private lap = 1;
   private speed = SPEED_BASE;
+  private boostCharge = 0;
+  private boostActive = 0;
   private countdown = 0;
   private comboHeat = 0;
   private lastMult = 1;
@@ -89,6 +95,8 @@ export class StormMode extends BaseMode {
     this.distance = 0;
     this.lap = 1;
     this.speed = SPEED_BASE;
+    this.boostCharge = 0;
+    this.boostActive = 0;
     this.countdown = 3.0;
     this.comboHeat = 0;
     this.lastMult = 1;
@@ -160,12 +168,21 @@ export class StormMode extends BaseMode {
     // Speed ramp: gradually加速
     this.speed = Math.min(SPEED_MAX, this.speed + SPEED_RAMP * dt);
 
+    // HIZ boost: fixed-duration speed burst; recharges over time while not active
+    if (this.boostActive > 0) {
+      this.boostActive -= dt;
+      if (this.boostActive <= 0) this.boostActive = 0;
+      this.spawnFlame();
+    } else if (this.countdown <= 0) {
+      this.boostCharge = Math.min(BOOST_MAX, this.boostCharge + BOOST_FILL * dt);
+    }
+
     // Distance + score accumulation
-    this.distance += this.speed * dt;
+    this.distance += this.effSpeed * dt;
     this.distTick += dt;
     if (this.distTick >= 0.25) {
       this.distTick -= 0.25;
-      this.bumpScore(Math.round(this.speed * 0.25));
+      this.bumpScore(Math.round(this.effSpeed * 0.25));
     }
 
     // Lap progression
@@ -214,7 +231,7 @@ export class StormMode extends BaseMode {
     const laneXs = this.laneXs();
     for (const d of this.diamonds) {
       d.phase += 3 * dt;
-      d.y += this.speed * 1.3 * dt;
+      d.y += this.effSpeed * 1.3 * dt;
       const cx = laneXs[d.lane];
       if (d.y > this.H + 30) {
         d.alive = false;
@@ -228,6 +245,7 @@ export class StormMode extends BaseMode {
         this.vibrate(12);
         this.bumpCombo();
         this.addComboHeat(12);
+        this.boostCharge = Math.min(BOOST_MAX, this.boostCharge + 10);
         this.flash = Math.max(this.flash, 0.1);
       }
     }
@@ -303,7 +321,7 @@ export class StormMode extends BaseMode {
   private updateTraffic(dt: number): void {
     const p = this.player;
     const laneXs = this.laneXs();
-    const speed = this.speed * 1.1;
+    const speed = this.effSpeed * 1.1;
     for (const t of this.traffic) {
       t.y += speed * dt;
       const cx = laneXs[t.lane];
@@ -316,6 +334,7 @@ export class StormMode extends BaseMode {
           this.bumpScore(NEAR_MISS_POINTS);
           this.bumpCombo();
           this.addComboHeat(18);
+          this.boostCharge = Math.min(BOOST_MAX, this.boostCharge + 8);
           this.addPopup(cx, t.y - 12, "YAKIN! +40", "#ffd166", 12);
           this.vibrate(6);
         }
@@ -426,6 +445,10 @@ export class StormMode extends BaseMode {
     this.comboHeat = Math.min(100, this.comboHeat + n);
   }
 
+  private get effSpeed(): number {
+    return this.boostActive > 0 ? this.speed + BOOST_SPEED : this.speed;
+  }
+
   // ---- Lane input ----
 
   private updateLane(dt: number): void {
@@ -452,6 +475,13 @@ export class StormMode extends BaseMode {
   }
 
   protected onPointerDownHook(): void {
+    const b = this.boostBtn();
+    if (Math.hypot(this.pointerX - b.x, this.pointerY - b.y) <= b.r + 6) {
+      this.tryActivateBoost();
+      this.tapX = -1;
+      this.swipeActive = false;
+      return;
+    }
     this.swipeStartX = this.pointerX;
     this.tapX = this.pointerX;
     this.swipeActive = true;
@@ -487,6 +517,46 @@ export class StormMode extends BaseMode {
     return [0, 1, 2].map((i) => this.lanePos(i));
   }
 
+  // ---- HIZ boost button ----
+
+  private boostBtn(): { x: number; y: number; r: number } {
+    return { x: this.W - 52, y: this.H - 66, r: 34 };
+  }
+
+  private tryActivateBoost(): void {
+    if (this.boostActive > 0) return;
+    if (this.boostCharge < BOOST_MAX) {
+      const b = this.boostBtn();
+      this.addPopup(b.x, b.y - b.r - 10, "HAZIR DEĞİL", "rgba(255,255,255,0.45)", 11);
+      return;
+    }
+    this.boostActive = BOOST_DURATION;
+    this.boostCharge = 0;
+    this.flash = Math.max(this.flash, 0.45);
+    this.shake = Math.min(14, this.shake + 8);
+    this.audio.boost();
+    this.setBanner("HIZ!", "ROKET ATEŞİ", 1.2);
+  }
+
+  private spawnFlame(): void {
+    const p = this.player;
+    if (!p.alive) return;
+    const colors = ["#ff5a1a", "#ff8c1a", "#ffd166", "#ff3b1a"];
+    for (let i = 0; i < 3; i++) {
+      this.particles.push({
+        x: p.x + (Math.random() - 0.5) * 12,
+        y: p.y + 14 + Math.random() * 6,
+        vx: (Math.random() - 0.5) * 46,
+        vy: 70 + Math.random() * 130,
+        life: 0.3 + Math.random() * 0.28,
+        maxLife: 0.58,
+        size: 3 + Math.random() * 4.5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        gravity: 0,
+      });
+    }
+  }
+
   // ---- Rendering ----
 
   protected renderEntities(ctx: CanvasRenderingContext2D): void {
@@ -495,6 +565,7 @@ export class StormMode extends BaseMode {
     for (const t of this.traffic) this.drawTraffic(ctx, t);
     if (this.player.alive) paintPlayer(ctx, this.player, this.time, false);
     this.drawHud(ctx);
+    this.drawBoostButton(ctx);
     this.drawCountdown(ctx);
     if (this.invertLeft > 0) this.drawInvert(ctx);
   }
@@ -566,7 +637,7 @@ export class StormMode extends BaseMode {
     ctx.fillText(`${Math.round(this.distance)}m`, this.W - 14, 20);
     ctx.fillStyle = "rgba(255,255,255,0.6)";
     ctx.font = "bold 10px system-ui, sans-serif";
-    ctx.fillText(`${Math.round(this.speed)} h`, this.W - 14, 34);
+    ctx.fillText(`${Math.round(this.effSpeed)} h`, this.W - 14, 34);
 
     // Diamond count with icon
     ctx.textAlign = "left";
@@ -593,6 +664,67 @@ export class StormMode extends BaseMode {
       ctx.fillStyle = mc;
       ctx.fillRect(this.W / 2 - 40, 65, 80 * heat, 4);
     }
+  }
+
+  private drawBoostButton(ctx: CanvasRenderingContext2D): void {
+    const b = this.boostBtn();
+    const frac = clamp(this.boostCharge / BOOST_MAX, 0, 1);
+    const active = this.boostActive > 0;
+    const activeFrac = active ? this.boostActive / BOOST_DURATION : 0;
+    const ready = this.boostCharge >= BOOST_MAX;
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 9);
+    ctx.save();
+    // Base disc
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fill();
+    // Charge (idle) or drain (active) ring
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (active ? activeFrac : frac));
+    ctx.strokeStyle = active ? "#ff5a1a" : ready ? "#ffd166" : "rgba(124,249,255,0.55)";
+    ctx.lineWidth = active ? 6 : 4;
+    ctx.lineCap = "round";
+    ctx.shadowColor = active ? "#ff5a1a" : ready ? "#ffd166" : "#7cf9ff";
+    ctx.shadowBlur = active ? 18 : ready ? 14 : 0;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // Ready glow fill
+    if (ready && !active) {
+      ctx.globalAlpha = 0.25 + 0.4 * pulse;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r - 9, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffd166";
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // Active burn fill
+    if (active) {
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r - 9, 0, Math.PI * 2);
+      ctx.fillStyle = "#ff5a1a";
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    // Flame/lightning icon
+    const iconColor = active ? "#ffffff" : ready ? "#2a1600" : "rgba(255,255,255,0.7)";
+    ctx.fillStyle = iconColor;
+    ctx.beginPath();
+    ctx.moveTo(b.x + 3, b.y - 16);
+    ctx.lineTo(b.x - 8, b.y + 2);
+    ctx.lineTo(b.x - 1, b.y + 2);
+    ctx.lineTo(b.x - 4, b.y + 16);
+    ctx.lineTo(b.x + 8, b.y - 1);
+    ctx.lineTo(b.x + 1, b.y - 1);
+    ctx.closePath();
+    ctx.fill();
+    // Label
+    ctx.fillStyle = active ? "#ff9f6a" : ready ? "#ffd166" : "rgba(255,255,255,0.7)";
+    ctx.font = "bold 10px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(active ? "HIZ!" : "HIZ", b.x, b.y + b.r + 14);
+    ctx.restore();
   }
 
   private drawCountdown(ctx: CanvasRenderingContext2D): void {
