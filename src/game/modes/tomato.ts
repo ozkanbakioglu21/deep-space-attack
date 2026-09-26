@@ -5,8 +5,9 @@ const LAUNCHER_Y_FRAC = 0.85;
 const GROUND_Y_FRAC = 0.93;
 const TOMATO_SPEED = 470;
 const GRAVITY = 180;
-const ALIEN_BASE_VY = 72;
-const ALIEN_VY_PER_LEVEL = 12;
+const ALIEN_BASE_VY = 88;
+const ALIEN_VY_PER_LEVEL = 14;
+const ALIEN_ACCEL = 22;
 const KILLS_PER_LEVEL = 10;
 
 interface Tomato {
@@ -117,13 +118,14 @@ export class TomatoMode extends BaseMode {
       this.throwAccum = 0;
     }
 
-    // Spawn aliens
+    // Spawn aliens (aggressive: frequent, and in bursts at higher waves)
     this.alienTimer -= dt;
     if (this.alienTimer <= 0) {
-      const interval = Math.max(0.42, 1.15 - (this.level - 1) * 0.08) * (0.7 + Math.random() * 0.5);
+      const interval = Math.max(0.3, 0.9 - (this.level - 1) * 0.05) * (0.7 + Math.random() * 0.5);
       this.alienTimer = interval;
       this.spawnAlien();
-      if (this.level >= 3 && Math.random() < 0.35) this.spawnAlien();
+      if (this.level >= 2 && Math.random() < 0.45) this.spawnAlien();
+      if (this.level >= 4 && Math.random() < 0.5) this.spawnAlien();
     }
 
     this.updateTomatoes(dt);
@@ -233,19 +235,21 @@ export class TomatoMode extends BaseMode {
   private spawnAlien(): void {
     const margin = 40;
     const kind = Math.floor(Math.random() * ALIEN_STYLES.length);
-    const big = this.level >= 3 && Math.random() < 0.25;
-    const r = big ? 30 : 22;
+    const brutal = this.level >= 4 && Math.random() < 0.18;
+    const big = !brutal && this.level >= 2 && Math.random() < 0.3;
+    const hp = brutal ? 3 : big ? 2 : 1;
+    const r = brutal ? 34 : big ? 30 : 22;
     const x = margin + Math.random() * (this.W - margin * 2);
-    const vy = ALIEN_BASE_VY + (this.level - 1) * ALIEN_VY_PER_LEVEL + Math.random() * 20;
-    const vx = (Math.random() - 0.5) * 60;
+    const vy = ALIEN_BASE_VY + (this.level - 1) * ALIEN_VY_PER_LEVEL + Math.random() * 30;
+    const vx = (Math.random() - 0.5) * 120;
     this.aliens.push({
       x,
       y: -r - 10,
       vx,
       vy,
       r,
-      hp: big ? 2 : 1,
-      maxHp: big ? 2 : 1,
+      hp,
+      maxHp: hp,
       kind,
       wobble: Math.random() * Math.PI * 2,
       flash: 0,
@@ -258,7 +262,8 @@ export class TomatoMode extends BaseMode {
     for (const a of this.aliens) {
       a.wobble += dt * 4;
       if (a.flash > 0) a.flash -= dt;
-      a.x += a.vx * dt;
+      a.vy += ALIEN_ACCEL * dt; // dive: aliens accelerate as they descend
+      a.x += a.vx * dt + Math.sin(a.wobble) * 26 * dt;
       a.y += a.vy * dt;
       if (a.x < a.r && a.vx < 0) a.vx = -a.vx;
       if (a.x > this.W - a.r && a.vx > 0) a.vx = -a.vx;

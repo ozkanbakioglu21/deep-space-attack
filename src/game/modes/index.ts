@@ -42,8 +42,8 @@ export const MODES: ModeMeta[] = [
     controls: [
       "Sürükle veya A/D ile domates toplarını hareket ettir.",
       "Basılı tut (veya Boşluk) → domates at. Başta tek tek; seviye atladıkça hızlanır ve çoklu atış açılır!",
-      "Domatesler uzaylıları ezer; büyük uzaylı 2 vuruş ister.",
-      "Uzaylılar alttaki bahçeye inerse can kaybedersin.",
+      "Domatesler uzaylıları ezer; büyükleri 2, devler 3 vuruş ister.",
+      "Uzaylılar inerken hızlanıp DALAR; tek biri bahçeye inerse can gider — çok zordur!",
       "Arka arkaya vurdukça kombo çarpanın artar.",
     ],
   },
