@@ -1,5 +1,6 @@
 import { Game } from "../engine";
 import { StormMode } from "./storm";
+import { TomatoMode } from "./tomato";
 import type { GameAdapter, ModeId, ModeMeta } from "./types";
 import type { GameCallbacks } from "../types";
 
@@ -32,6 +33,20 @@ export const MODES: ModeMeta[] = [
         "Sağ alttaki HIZ tuşu zamanla dolar; dolunca basınca kısa süre roket hızı ve arkandan alev!",
       ],
   },
+  {
+    id: "tomato",
+    name: "DOMATES",
+    tagline: "Uzaylılar iniyor, sen domates atıyorsun: patlat, kaçırma, kombo yap!",
+    accent: "#ff5a3c",
+    hud: { showLevel: true, showCombo: true, levelLabel: "Dalga", scoreLabel: "Skor" },
+    controls: [
+      "Sürükle veya A/D ile domates toplarını hareket ettir.",
+      "Basılı tut (veya Boşluk) → uzaylılara doğru domates yağmuru gönder.",
+      "Domatesler uzaylıları ezer; büyük uzaylı 2 vuruş ister.",
+      "Uzaylılar alttaki bahçeye inerse can kaybedersin.",
+      "Arka arkaya vurdukça kombo çarpanın artar.",
+    ],
+  },
 ];
 
 export function createMode(
@@ -42,6 +57,8 @@ export function createMode(
   switch (id) {
     case "storm":
       return new StormMode(canvas, cbs);
+    case "tomato":
+      return new TomatoMode(canvas, cbs);
     case "flow":
     default:
       return new Game(canvas, cbs);
