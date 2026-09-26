@@ -41,7 +41,7 @@ export const MODES: ModeMeta[] = [
     hud: { showLevel: true, showCombo: true, levelLabel: "Dalga", scoreLabel: "Skor" },
     controls: [
       "Sürükle veya A/D ile domates toplarını hareket ettir.",
-      "Basılı tut (veya Boşluk) → uzaylılara doğru domates yağmuru gönder.",
+      "Basılı tut (veya Boşluk) → domates at. Başta tek tek; seviye atladıkça hızlanır ve çoklu atış açılır!",
       "Domatesler uzaylıları ezer; büyük uzaylı 2 vuruş ister.",
       "Uzaylılar alttaki bahçeye inerse can kaybedersin.",
       "Arka arkaya vurdukça kombo çarpanın artar.",

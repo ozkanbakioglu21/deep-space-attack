@@ -3,7 +3,6 @@ import { BaseMode } from "./base";
 
 const LAUNCHER_Y_FRAC = 0.85;
 const GROUND_Y_FRAC = 0.93;
-const THROW_RATE = 7;
 const TOMATO_SPEED = 470;
 const GRAVITY = 180;
 const ALIEN_BASE_VY = 72;
@@ -109,7 +108,7 @@ export class TomatoMode extends BaseMode {
     const throwing = this.hasPointer || this.keys.has(" ");
     if (throwing) {
       this.throwAccum += dt;
-      const interval = 1 / THROW_RATE;
+      const interval = 1 / this.throwRate;
       while (this.throwAccum >= interval) {
         this.throwAccum -= interval;
         this.throwTomato();
@@ -133,19 +132,33 @@ export class TomatoMode extends BaseMode {
 
   // ---- Throwing ----
 
+  // Throwing scales with level: start at one tomato at a time, gain speed
+  // and multi-shot (fan) as you level up.
+  private get throwRate(): number {
+    return Math.min(7, 1.5 + (this.level - 1) * 0.6);
+  }
+
+  private get shotsPerThrow(): number {
+    return Math.min(4, 1 + Math.floor((this.level - 1) / 2));
+  }
+
   private throwTomato(): void {
     const p = this.player;
     if (!p.alive) return;
-    const spread = (Math.random() - 0.5) * 90;
-    this.tomatoes.push({
-      x: p.x + Math.sin(p.tilt) * 26,
-      y: p.y - 30,
-      vx: spread,
-      vy: -TOMATO_SPEED,
-      r: 11,
-      spin: Math.random() * Math.PI * 2,
-      alive: true,
-    });
+    const n = this.shotsPerThrow;
+    for (let i = 0; i < n; i++) {
+      const t = n === 1 ? 0 : i / (n - 1) - 0.5;
+      const angle = t * 0.7;
+      this.tomatoes.push({
+        x: p.x + Math.sin(p.tilt) * 26,
+        y: p.y - 30,
+        vx: Math.sin(angle) * TOMATO_SPEED + (Math.random() - 0.5) * 26,
+        vy: -Math.cos(angle) * TOMATO_SPEED,
+        r: 11,
+        spin: Math.random() * Math.PI * 2,
+        alive: true,
+      });
+    }
     this.audio.shoot();
     this.shake = Math.min(4, this.shake + 1);
   }
@@ -266,7 +279,10 @@ export class TomatoMode extends BaseMode {
     for (const a of this.aliens) this.drawAlien(ctx, a);
     for (const t of this.tomatoes) this.drawTomato(ctx, t);
     this.drawAimHint(ctx);
-    if (this.player.alive) this.drawLauncher(ctx);
+    if (this.player.alive) {
+      this.drawLauncher(ctx);
+      if (this.shotsPerThrow > 1) this.drawThrowBadge(ctx);
+    }
   }
 
   private drawGround(ctx: CanvasRenderingContext2D): void {
@@ -434,6 +450,17 @@ export class TomatoMode extends BaseMode {
     ctx.beginPath();
     ctx.arc(0, -34, 7, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+
+  private drawThrowBadge(ctx: CanvasRenderingContext2D): void {
+    const p = this.player;
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "#8be05a";
+    ctx.font = "bold 12px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`🍅 ×${this.shotsPerThrow}`, p.x, p.y + 34);
     ctx.restore();
   }
 }
