@@ -59,6 +59,7 @@ export class ShockMode extends BaseMode {
   private shockSeq = 0;
   private chainFlash = 0;
   private lineFlash = 0;
+  private breaches: { x: number; life: number }[] = [];
 
   protected get palette(): ChapterDef {
     return {
@@ -89,6 +90,7 @@ export class ShockMode extends BaseMode {
     this.energy = ENERGY_MAX;
     this.shockSeq = 0;
     this.chainFlash = 0;
+    this.breaches = [];
     this.player.y = this.H * 0.5;
     this.setBanner("ŞOK DALGASI", "Çizgiyi koru — uzaylıları geçmeden patlat!");
   }
@@ -97,12 +99,15 @@ export class ShockMode extends BaseMode {
     this.shocks = [];
     this.aliens = [];
     this.energy = ENERGY_MAX;
+    this.breaches = [];
   }
 
   protected updateSub(dt: number) {
     this.energy = Math.min(ENERGY_MAX, this.energy + ENERGY_REGEN * dt);
     this.chainFlash = Math.max(0, this.chainFlash - dt);
     this.lineFlash = Math.max(0, this.lineFlash - dt * 1.8);
+    for (const b of this.breaches) b.life -= dt;
+    this.breaches = this.breaches.filter((b) => b.life > 0);
 
     // Spawn aliens.
     this.alienTimer -= dt;
@@ -244,13 +249,36 @@ export class ShockMode extends BaseMode {
       if (a.y + a.r > groundY) {
         a.alive = false;
         this.explode(a.x, groundY, "#ff6b6b", 14, 9, 150);
+        this.addLineBreach(a.x, groundY);
         this.addPopup(clamp(a.x, 40, this.W - 40), groundY - 14, "ÇİZGİYİ GEÇTİ! -1 CAN", "#ff5a3c", 13);
         this.lineFlash = 1;
         this.shake = Math.min(16, this.shake + 6);
+        this.addHitStop(0.14);
         this.registerHit();
       }
     }
     this.aliens = this.aliens.filter((a) => a.alive);
+  }
+
+  // Line breach: sparks fly along the line + a jagged crack mark appears and fades.
+  private addLineBreach(x: number, y: number): void {
+    this.breaches.push({ x: clamp(x, 12, this.W - 12), life: 0.8 });
+    for (let i = 0; i < 16; i++) {
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      const v = 60 + Math.random() * 160;
+      const life = 0.3 + Math.random() * 0.4;
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 16,
+        y: y - Math.random() * 6,
+        vx: dir * v,
+        vy: -20 - Math.random() * 60,
+        life,
+        maxLife: life,
+        size: 1.5 + Math.random() * 2.5,
+        color: Math.random() < 0.5 ? "#ff5a3c" : "#ffd166",
+        gravity: 200,
+      });
+    }
   }
 
   private checkLevel() {
@@ -286,6 +314,8 @@ export class ShockMode extends BaseMode {
     ctx.setLineDash([]);
     ctx.restore();
 
+    for (const b of this.breaches) this.drawBreach(ctx, b, gY);
+
     for (const s of this.shocks) this.drawShock(ctx, s);
     for (const a of this.aliens) this.drawAlien(ctx, a);
 
@@ -302,6 +332,28 @@ export class ShockMode extends BaseMode {
     g.addColorStop(1, `rgba(255,40,40,${(0.5 * this.lineFlash).toFixed(3)})`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, this.W, this.H);
+  }
+
+  private drawBreach(ctx: CanvasRenderingContext2D, b: { x: number; life: number }, gY: number): void {
+    const t = b.life / 0.8; // 1 -> 0
+    const w = 26;
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,70,50,${(t * 0.9).toFixed(3)})`;
+    ctx.lineWidth = 2 + t * 2;
+    ctx.shadowColor = "#ff5a3c";
+    ctx.shadowBlur = 10 * t;
+    ctx.beginPath();
+    ctx.moveTo(b.x - w, gY);
+    let cx = b.x - w;
+    let up = true;
+    while (cx < b.x + w) {
+      cx += 6;
+      ctx.lineTo(cx, gY + (up ? -6 : 6) * t);
+      up = !up;
+    }
+    ctx.lineTo(b.x + w, gY);
+    ctx.stroke();
+    ctx.restore();
   }
 
   private drawShock(ctx: CanvasRenderingContext2D, s: Shock) {
