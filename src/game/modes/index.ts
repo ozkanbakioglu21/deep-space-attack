@@ -2,6 +2,7 @@ import { Game } from "../engine";
 import { StormMode } from "./storm";
 import { TomatoMode } from "./tomato";
 import { GunMode } from "./gun";
+import { ShockMode } from "./shock";
 import type { GameAdapter, ModeId, ModeMeta } from "./types";
 import type { GameCallbacks } from "../types";
 
@@ -62,6 +63,20 @@ export const MODES: ModeMeta[] = [
       "Uzaylılar alttaki hatta inerse can gider.",
     ],
   },
+  {
+    id: "shock",
+    name: "ŞOK",
+    tagline: "Atış değil, fizik: şok dalgası bırak, yeşil reaktifleri patlat, zincirleme reaksiyon kur!",
+    accent: "#a86bff",
+    hud: { showLevel: true, showCombo: true, levelLabel: "Dalga", scoreLabel: "Skor" },
+    controls: [
+      "Ekrana dokun (veya tıkla) → o noktaya genişleyen bir ŞOK dalgası bırakırsın.",
+      "Her dalga enerji harcar; enerji zamanla dolar. Boşa harcamamak için kümeleri vur!",
+      "Yeşil REAKTİF uzaylılar patlayınca mini şok yayar → yanındakileri de sıçratır. Zincir kur!",
+      "Tek dalgayla çoklarını vurdukça kombo fırlar. Kırmızı tanklar 2 vuruş ister.",
+      "Uzaylılar alttaki hatta inerse can gider.",
+    ],
+  },
 ];
 
 export function createMode(
@@ -76,6 +91,8 @@ export function createMode(
       return new TomatoMode(canvas, cbs);
     case "gun":
       return new GunMode(canvas, cbs);
+    case "shock":
+      return new ShockMode(canvas, cbs);
     case "flow":
     default:
       return new Game(canvas, cbs);
