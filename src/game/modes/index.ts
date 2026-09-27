@@ -74,8 +74,8 @@ export const MODES: ModeMeta[] = [
       "Ekrana dokun (veya tıkla) → o noktaya genişleyen bir ŞOK dalgası bırakırsın.",
       "Her dalga enerji harcar; enerji zamanla dolar. Boşa harcamamak için kümeleri vur!",
       "Yeşil REAKTİF uzaylılar patlayınca mini şok yayar → yanındakileri de sıçratır. Zincir kur!",
-      "Tek dalgayla çoklarını vurdukça kombo fırlar. Kırmızı tanklar 2 vuruş ister.",
-      "Uzaylılar alttaki hatta inerse can gider.",
+      "Kırmızı tanklar 2 vuruş ister. Turuncu oklu uzaylılar KAÇIYOR — kaçmadan vur!",
+      "Uzaylı ekrandan (yukarı / yan / alt) çıkarsa can gider.",
     ],
   },
 ];
