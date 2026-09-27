@@ -28,7 +28,6 @@ interface Shock {
   alive: boolean;
 }
 type AlienType = "normal" | "reactive" | "tank";
-type FleeDir = "left" | "right" | "up" | null;
 interface Alien {
   x: number;
   y: number;
@@ -42,9 +41,6 @@ interface Alien {
   flash: number;
   type: AlienType;
   hitByShock: number;
-  flee: boolean;
-  fleeDir: FleeDir;
-  phase: number;
   alive: boolean;
 }
 
@@ -62,7 +58,6 @@ export class ShockMode extends BaseMode {
   private energy = ENERGY_MAX;
   private shockSeq = 0;
   private chainFlash = 0;
-  private fleeHinted = false;
 
   protected get palette(): ChapterDef {
     return {
@@ -93,16 +88,14 @@ export class ShockMode extends BaseMode {
     this.energy = ENERGY_MAX;
     this.shockSeq = 0;
     this.chainFlash = 0;
-    this.fleeHinted = false;
     this.player.y = this.H * 0.5;
-    this.setBanner("ŞOK DALGASI", "Enerjini yönet, reaktifleri patlat, zincir kur!");
+    this.setBanner("ŞOK DALGASI", "Çizgiyi koru — uzaylıları geçmeden patlat!");
   }
 
   protected resetIdle(): void {
     this.shocks = [];
     this.aliens = [];
     this.energy = ENERGY_MAX;
-    this.fleeHinted = false;
   }
 
   protected updateSub(dt: number) {
@@ -147,7 +140,7 @@ export class ShockMode extends BaseMode {
 
   private spawnAlien() {
     const r = 15 + Math.random() * 8;
-    let x = r + Math.random() * (this.W - 2 * r);
+    const x = r + Math.random() * (this.W - 2 * r);
     let type: AlienType = "normal";
     let hp = 1;
     let kind = 0;
@@ -159,35 +152,9 @@ export class ShockMode extends BaseMode {
       type = "reactive";
       kind = 1;
     }
-
-    // Fleeing aliens bail toward an edge (or back up) instead of just falling.
-    const fleeProb = Math.min(0.4, 0.1 + this.level * 0.035);
-    const flee = Math.random() < fleeProb;
-    let fleeDir: FleeDir = null;
-    let phase = 0;
-    let vx = (Math.random() - 0.5) * 20;
-    let vy = ALIEN_BASE_VY + (this.level - 1) * ALIEN_VY_PER_LEVEL + Math.random() * 20;
-    if (flee) {
-      const dirs: Exclude<FleeDir, null>[] = ["left", "right", "up"];
-      fleeDir = dirs[Math.floor(Math.random() * dirs.length)];
-      const sp = 120 + this.level * 6 + Math.random() * 40;
-      x = this.W * 0.3 + Math.random() * this.W * 0.4; // spawn central so it is catchable
-      if (fleeDir === "left") {
-        vx = -sp;
-        vy = 24 + Math.random() * 16;
-      } else if (fleeDir === "right") {
-        vx = sp;
-        vy = 24 + Math.random() * 16;
-      } else {
-        vx = 0;
-        vy = 60 + Math.random() * 30; // up: descends a touch, then flees back up (phase 1)
-      }
-      if (!this.fleeHinted) {
-        this.fleeHinted = true;
-        this.setBanner("DİKKAT: BAZILARI KAÇIYOR!", "Kaçmalarına mani ol — ekrandan çıkarsa can gider.");
-      }
-    }
-
+    // Every alien pushes toward the dashed line — stop it before it crosses.
+    const vx = (Math.random() - 0.5) * 40;
+    const vy = ALIEN_BASE_VY + (this.level - 1) * ALIEN_VY_PER_LEVEL + Math.random() * 20;
     this.aliens.push({
       x,
       y: -r,
@@ -201,9 +168,6 @@ export class ShockMode extends BaseMode {
       flash: 0,
       type,
       hitByShock: -1,
-      flee,
-      fleeDir,
-      phase,
       alive: true,
     });
   }
@@ -271,49 +235,18 @@ export class ShockMode extends BaseMode {
     for (const a of this.aliens) {
       if (!a.alive) continue;
       a.wobble += dt * 4;
-      a.flash = Math.max(0, a.flash - dt);
-
-      // "Up" fleeters come down a touch, then turn and flee back to the top.
-      if (a.flee && a.fleeDir === "up" && a.phase === 0) {
-        a.x += a.vx * dt;
-        a.y += a.vy * dt;
-        if (a.y >= this.H * 0.12) {
-          a.phase = 1;
-          a.vx = 0;
-          a.vy = -(100 + this.level * 6 + Math.random() * 30);
-        }
-        if (a.y + a.r > groundY) {
-          a.alive = false;
-          this.escape(a);
-        }
-        continue;
-      }
-
       a.x += a.vx * dt;
+      if (a.x < a.r || a.x > this.W - a.r) a.vx *= -1;
       a.y += a.vy * dt;
-
-      if (a.flee) {
-        // No wall bounce: any screen exit (up / side) or the ground = escape.
-        if (a.x < a.r || a.x > this.W - a.r || a.y < -a.r || a.y + a.r > groundY) {
-          a.alive = false;
-          this.escape(a);
-        }
-      } else {
-        if (a.x < a.r || a.x > this.W - a.r) a.vx *= -1;
-        if (a.y + a.r > groundY) {
-          a.alive = false;
-          this.escape(a);
-        }
+      a.flash = Math.max(0, a.flash - dt);
+      if (a.y + a.r > groundY) {
+        a.alive = false;
+        this.explode(a.x, groundY, "#ff6b6b", 12, 8, 130);
+        this.addPopup(clamp(a.x, 40, this.W - 40), groundY - 14, "ÇİZGİYİ GEÇTİ! -1 CAN", "#ff5a3c", 13);
+        this.registerHit();
       }
     }
     this.aliens = this.aliens.filter((a) => a.alive);
-  }
-
-  private escape(a: Alien): void {
-    this.explode(clamp(a.x, 8, this.W - 8), clamp(a.y, 8, this.H - 8), "#ff9f43", 12, 8, 130);
-    this.addPopup(clamp(a.x, 34, this.W - 34), clamp(a.y, 34, this.H - 34), "KAÇTI! -1 CAN", "#ff5a3c", 14);
-    this.vibrate(16);
-    this.registerHit();
   }
 
   private checkLevel() {
@@ -439,38 +372,6 @@ export class ShockMode extends BaseMode {
       ctx.font = "bold 10px system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(String(a.hp), x, y - r - 8);
-    }
-
-    // Fleeing cue: pulsing orange ring + arrow pointing the escape direction.
-    if (a.flee && a.fleeDir) {
-      let dx = 0;
-      let dy = 0;
-      if (a.fleeDir === "left") dx = -1;
-      else if (a.fleeDir === "right") dx = 1;
-      else dy = -1;
-      const pulse = 0.5 + 0.5 * Math.sin(a.wobble * 3);
-      ctx.save();
-      ctx.globalAlpha = 0.4 + 0.4 * pulse;
-      ctx.strokeStyle = "#ff9f43";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.arc(x, y, r + 6, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      const ax = x + dx * (r + 12);
-      const ay = y + dy * (r + 12);
-      ctx.globalAlpha = 0.6 + 0.4 * pulse;
-      ctx.fillStyle = "#ff9f43";
-      ctx.translate(ax, ay);
-      ctx.rotate(Math.atan2(dy, dx));
-      ctx.beginPath();
-      ctx.moveTo(6, 0);
-      ctx.lineTo(-3, -4);
-      ctx.lineTo(-3, 4);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
     }
   }
 

@@ -72,10 +72,10 @@ export const MODES: ModeMeta[] = [
     hud: { showLevel: true, showCombo: true, levelLabel: "Dalga", scoreLabel: "Skor" },
     controls: [
       "Ekrana dokun (veya tıkla) → o noktaya genişleyen bir ŞOK dalgası bırakırsın.",
-      "Her dalga enerji harcar; enerji zamanla dolar. Boşa harcamamak için kümeleri vur!",
-      "Yeşil REAKTİF uzaylılar patlayınca mini şok yayar → yanındakileri de sıçratır. Zincir kur!",
-      "Kırmızı tanklar 2 vuruş ister. Turuncu oklu uzaylılar KAÇIYOR — kaçmadan vur!",
-      "Uzaylı ekrandan (yukarı / yan / alt) çıkarsa can gider.",
+      "AMAÇ: Tüm uzaylılar alttaki KESİK ÇİZGİYİ geçmeye çalışır; onları çizgiyi geçmeden patlat!",
+      "Kesik çizgiyi geçen uzaylı can götürür. Çizgiyi koru.",
+      "Her dalga enerji harcar, enerji zamanla dolar → kümeleri vur, boşa harcama.",
+      "Yeşil REAKTİFler patlayınca zincir kurar; kırmızı tanklar 2 vuruş ister.",
     ],
   },
 ];
