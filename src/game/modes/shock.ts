@@ -58,6 +58,7 @@ export class ShockMode extends BaseMode {
   private energy = ENERGY_MAX;
   private shockSeq = 0;
   private chainFlash = 0;
+  private lineFlash = 0;
 
   protected get palette(): ChapterDef {
     return {
@@ -101,6 +102,7 @@ export class ShockMode extends BaseMode {
   protected updateSub(dt: number) {
     this.energy = Math.min(ENERGY_MAX, this.energy + ENERGY_REGEN * dt);
     this.chainFlash = Math.max(0, this.chainFlash - dt);
+    this.lineFlash = Math.max(0, this.lineFlash - dt * 1.8);
 
     // Spawn aliens.
     this.alienTimer -= dt;
@@ -241,8 +243,10 @@ export class ShockMode extends BaseMode {
       a.flash = Math.max(0, a.flash - dt);
       if (a.y + a.r > groundY) {
         a.alive = false;
-        this.explode(a.x, groundY, "#ff6b6b", 12, 8, 130);
+        this.explode(a.x, groundY, "#ff6b6b", 14, 9, 150);
         this.addPopup(clamp(a.x, 40, this.W - 40), groundY - 14, "ÇİZGİYİ GEÇTİ! -1 CAN", "#ff5a3c", 13);
+        this.lineFlash = 1;
+        this.shake = Math.min(16, this.shake + 6);
         this.registerHit();
       }
     }
@@ -288,6 +292,16 @@ export class ShockMode extends BaseMode {
     this.drawEnergyBar(ctx, gY);
 
     if (this.playing) this.drawReticle(ctx);
+
+    if (this.lineFlash > 0) this.drawLineFlash(ctx);
+  }
+
+  private drawLineFlash(ctx: CanvasRenderingContext2D): void {
+    const g = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.2, this.W / 2, this.H / 2, this.H * 0.75);
+    g.addColorStop(0, "rgba(255,40,40,0)");
+    g.addColorStop(1, `rgba(255,40,40,${(0.5 * this.lineFlash).toFixed(3)})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.W, this.H);
   }
 
   private drawShock(ctx: CanvasRenderingContext2D, s: Shock) {
@@ -372,6 +386,22 @@ export class ShockMode extends BaseMode {
       ctx.font = "bold 10px system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(String(a.hp), x, y - r - 8);
+    }
+
+    // Warning: aliens glow red as they close in on the dashed line.
+    const distToLine = this.H * GROUND_Y_FRAC - (a.y + a.r);
+    const warn = clamp(1 - distToLine / 130, 0, 1);
+    if (warn > 0) {
+      ctx.save();
+      ctx.globalAlpha = warn * (0.45 + 0.3 * Math.sin(this.time * 10));
+      ctx.strokeStyle = "#ff3b3b";
+      ctx.lineWidth = 2 + warn * 2;
+      ctx.shadowColor = "#ff3b3b";
+      ctx.shadowBlur = 8 + warn * 14;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 3 + warn * 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 
