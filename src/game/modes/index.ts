@@ -69,13 +69,13 @@ export const MODES: ModeMeta[] = [
     name: "ŞOK",
     tagline: "Atış değil, fizik: şok dalgası bırak, yeşil reaktifleri patlat, zincirleme reaksiyon kur!",
     accent: "#a86bff",
-    hud: { showLevel: true, showCombo: true, levelLabel: "Dalga", scoreLabel: "Skor" },
+    hud: { showLevel: true, showCombo: true, levelLabel: "Dalga", scoreLabel: "Skor", lives: 5 },
     controls: [
       "Ekrana dokun (veya tıkla) → o noktaya genişleyen bir ŞOK dalgası bırakırsın.",
-      "AMAÇ: Tüm uzaylılar alttaki KESİK ÇİZGİYİ geçmeye çalışır; onları çizgiyi geçmeden patlat!",
-      "Kesik çizgiyi geçen uzaylı can götürür. Çizgiyi koru.",
-      "Her dalga enerji harcar, enerji zamanla dolar → kümeleri vur, boşa harcama.",
-      "Yeşil REAKTİFler patlayınca zincir kurar; kırmızı tanklar 2 vuruş ister.",
+      "Tüm uzaylılar alttaki KESİK ÇİZGİYİ geçmeye çalışır; geçmeden patlat!",
+      "5 kalple başlarsın: her 5 uzaylı çizgiyi geçerse 1 kalp gider, kalpler bitince oyun biter.",
+      "Alt çizgideki 5 blok, bir kalbe ne kadar yaklaştığını gösterir.",
+      "Her dalga enerji harcar → kümeleri vur. Yeşil REAKTİFler zincir kurar; kırmızı tanklar 2 vuruş ister.",
     ],
   },
 ];

@@ -16,6 +16,7 @@ const ALIEN_VY_PER_LEVEL = 9;
 const KILLS_PER_LEVEL = 8;
 const ACCENT = "#a86bff";
 const CHAIN_COL = "#7cff6b";
+const LINES_PER_HEART = 5; // every N aliens crossing the line costs 1 heart
 
 interface Shock {
   x: number;
@@ -60,6 +61,7 @@ export class ShockMode extends BaseMode {
   private chainFlash = 0;
   private lineFlash = 0;
   private breaches: { x: number; life: number }[] = [];
+  private lineBreaches = 0;
 
   protected get palette(): ChapterDef {
     return {
@@ -77,7 +79,7 @@ export class ShockMode extends BaseMode {
   }
 
   constructor(canvas: HTMLCanvasElement, cbs: GameCallbacks) {
-    super(canvas, cbs, "shock");
+    super(canvas, cbs, "shock", 5);
     this.resetIdle();
   }
 
@@ -91,6 +93,7 @@ export class ShockMode extends BaseMode {
     this.shockSeq = 0;
     this.chainFlash = 0;
     this.breaches = [];
+    this.lineBreaches = 0;
     this.player.y = this.H * 0.5;
     this.setBanner("ŞOK DALGASI", "Çizgiyi koru — uzaylıları geçmeden patlat!");
   }
@@ -100,6 +103,7 @@ export class ShockMode extends BaseMode {
     this.aliens = [];
     this.energy = ENERGY_MAX;
     this.breaches = [];
+    this.lineBreaches = 0;
   }
 
   protected updateSub(dt: number) {
@@ -248,16 +252,39 @@ export class ShockMode extends BaseMode {
       a.flash = Math.max(0, a.flash - dt);
       if (a.y + a.r > groundY) {
         a.alive = false;
-        this.explode(a.x, groundY, "#ff6b6b", 14, 9, 150);
-        this.addLineBreach(a.x, groundY);
-        this.addPopup(clamp(a.x, 40, this.W - 40), groundY - 14, "ÇİZGİYİ GEÇTİ! -1 CAN", "#ff5a3c", 13);
-        this.lineFlash = 1;
-        this.shake = Math.min(16, this.shake + 6);
-        this.addHitStop(0.14);
-        this.registerHit();
+        this.onLineCross(a.x, groundY);
       }
     }
     this.aliens = this.aliens.filter((a) => a.alive);
+  }
+
+  // An alien crossed the dashed line: minor breach; every LINES_PER_HEART costs a heart.
+  private onLineCross(x: number, y: number): void {
+    this.explode(x, y, "#ff6b6b", 12, 8, 130);
+    this.addLineBreach(x, y);
+    this.lineFlash = Math.max(this.lineFlash, 0.45);
+    this.shake = Math.min(14, this.shake + 4);
+    this.lineBreaches++;
+    if (this.lineBreaches >= LINES_PER_HEART) {
+      this.lineBreaches = 0;
+      this.loseHeart(x, y);
+    }
+  }
+
+  private loseHeart(x: number, y: number): void {
+    this.lives--;
+    this.cbs.onLives(this.lives);
+    this.explode(x, y, "#ff3b3b", 24, 11, 190);
+    this.addPopup(clamp(x, 46, this.W - 46), y - 26, "CAN GİTTİ! ♥-1", "#ff5a3c", 16);
+    this.lineFlash = 1;
+    this.shake = Math.min(18, this.shake + 9);
+    this.addHitStop(0.18);
+    this.vibrate(60);
+    this.resetCombo();
+    if (this.lives <= 0) {
+      this.player.alive = false;
+      this.finish();
+    }
   }
 
   // Line breach: sparks fly along the line + a jagged crack mark appears and fades.
@@ -315,6 +342,7 @@ export class ShockMode extends BaseMode {
     ctx.restore();
 
     for (const b of this.breaches) this.drawBreach(ctx, b, gY);
+    this.drawBreachMeter(ctx, gY);
 
     for (const s of this.shocks) this.drawShock(ctx, s);
     for (const a of this.aliens) this.drawAlien(ctx, a);
@@ -353,6 +381,29 @@ export class ShockMode extends BaseMode {
     }
     ctx.lineTo(b.x + w, gY);
     ctx.stroke();
+    ctx.restore();
+  }
+
+  // 5-segment meter in the danger strip: fills as aliens cross; full = a heart is lost.
+  private drawBreachMeter(ctx: CanvasRenderingContext2D, gY: number): void {
+    const segs = LINES_PER_HEART;
+    const segW = 13;
+    const segH = 6;
+    const gap = 4;
+    const totalW = segs * segW + (segs - 1) * gap;
+    const x0 = (this.W - totalW) / 2;
+    const y = gY + 18;
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.font = "9px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("ÇİZGİ", this.W / 2, y - 2);
+    for (let i = 0; i < segs; i++) {
+      const x = x0 + i * (segW + gap);
+      const filled = i < this.lineBreaches;
+      ctx.fillStyle = filled ? "#ff5a3c" : "rgba(255,255,255,0.14)";
+      ctx.fillRect(x, y + 4, segW, segH);
+    }
     ctx.restore();
   }
 
