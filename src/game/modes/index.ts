@@ -1,6 +1,7 @@
 import { Game } from "../engine";
 import { StormMode } from "./storm";
 import { TomatoMode } from "./tomato";
+import { GunMode } from "./gun";
 import type { GameAdapter, ModeId, ModeMeta } from "./types";
 import type { GameCallbacks } from "../types";
 
@@ -47,6 +48,20 @@ export const MODES: ModeMeta[] = [
       "Arka arkaya vurdukça kombo çarpanın artar.",
     ],
   },
+  {
+    id: "gun",
+    name: "SİLAH",
+    tagline: "Döner namlulu geminle nişan al, sıktır, uzaylıları temizle!",
+    accent: "#5b8dff",
+    hud: { showLevel: true, showCombo: true, levelLabel: "Dalga", scoreLabel: "Skor" },
+    controls: [
+      "Parmağını / faresi nereye tutarsan namlu oraya nişan alır.",
+      "Basılı tut (veya Boşluk) → o yöne mermi yağdır; A/D ile de kayabilirsin.",
+      "Her 10 vuruşta dalga atlar; ateş hızlanır ve 2. / 3. namlu açılır.",
+      "Bazı uzaylılar dalgalı uçar, bazıları dalar; büyükleri 2 vuruş ister.",
+      "Uzaylılar alttaki hatta inerse can gider.",
+    ],
+  },
 ];
 
 export function createMode(
@@ -59,6 +74,8 @@ export function createMode(
       return new StormMode(canvas, cbs);
     case "tomato":
       return new TomatoMode(canvas, cbs);
+    case "gun":
+      return new GunMode(canvas, cbs);
     case "flow":
     default:
       return new Game(canvas, cbs);
