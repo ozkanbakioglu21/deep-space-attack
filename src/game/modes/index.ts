@@ -52,13 +52,14 @@ export const MODES: ModeMeta[] = [
   {
     id: "gun",
     name: "SİLAH",
-    tagline: "Döner namlulu geminle nişan al, sıktır, uzaylıları temizle!",
+    tagline: "Gerçekçi ateş: geri tepme nişanı savurur, namlu ısınır — seriler halinde at!",
     accent: "#5b8dff",
     hud: { showLevel: true, showCombo: true, levelLabel: "Dalga", scoreLabel: "Skor" },
     controls: [
       "Parmağını / faresi nereye tutarsan namlu oraya nişan alır.",
       "Basılı tut (veya Boşluk) → o yöne mermi yağdır; A/D ile de kayabilirsin.",
-      "Her 10 vuruşta dalga atlar; ateş hızlanır ve 2. / 3. namlu açılır.",
+      "Her atış namluyu ISITIR: aşırı ısınırsa BARREL HARETLİ olur, soğumasını bekle!",
+      "Sıkışık ateş GERİ TEPMİ yapar, nişanı savurur → kısa, ritimli seriler isabetli.",
       "Bazı uzaylılar dalgalı uçar, bazıları dalar; büyükleri 2 vuruş ister.",
       "Uzaylılar alttaki hatta inerse can gider.",
     ],
