@@ -5,9 +5,9 @@ const LAUNCHER_Y_FRAC = 0.85;
 const GROUND_Y_FRAC = 0.93;
 const TOMATO_SPEED = 470;
 const GRAVITY = 180;
-const ALIEN_BASE_VY = 88;
-const ALIEN_VY_PER_LEVEL = 14;
-const ALIEN_ACCEL = 22;
+const ALIEN_BASE_VY = 108;
+const ALIEN_VY_PER_LEVEL = 18;
+const ALIEN_ACCEL = 45;
 const KILLS_PER_LEVEL = 10;
 
 interface Tomato {
@@ -64,7 +64,7 @@ export class TomatoMode extends BaseMode {
   }
 
   constructor(canvas: HTMLCanvasElement, cbs: GameCallbacks) {
-    super(canvas, cbs, "tomato");
+    super(canvas, cbs, "tomato", 2);
     this.resetIdle();
   }
 
@@ -118,13 +118,14 @@ export class TomatoMode extends BaseMode {
       this.throwAccum = 0;
     }
 
-    // Spawn aliens (aggressive: frequent, and in bursts at higher waves)
+    // Spawn aliens (extreme: very frequent, and in bursts from wave 1)
     this.alienTimer -= dt;
     if (this.alienTimer <= 0) {
-      const interval = Math.max(0.3, 0.9 - (this.level - 1) * 0.05) * (0.7 + Math.random() * 0.5);
+      const interval = Math.max(0.22, 0.72 - (this.level - 1) * 0.045) * (0.7 + Math.random() * 0.5);
       this.alienTimer = interval;
       this.spawnAlien();
-      if (this.level >= 2 && Math.random() < 0.45) this.spawnAlien();
+      if (Math.random() < 0.55) this.spawnAlien();
+      if (this.level >= 2 && Math.random() < 0.55) this.spawnAlien();
       if (this.level >= 4 && Math.random() < 0.5) this.spawnAlien();
     }
 
@@ -137,11 +138,11 @@ export class TomatoMode extends BaseMode {
   // Throwing scales with level: start at one tomato at a time, gain speed
   // and multi-shot (fan) as you level up.
   private get throwRate(): number {
-    return Math.min(7, 1.5 + (this.level - 1) * 0.6);
+    return Math.min(6, 1.2 + (this.level - 1) * 0.4);
   }
 
   private get shotsPerThrow(): number {
-    return Math.min(4, 1 + Math.floor((this.level - 1) / 2));
+    return Math.min(4, 1 + Math.floor((this.level - 1) / 3));
   }
 
   private throwTomato(): void {
@@ -235,13 +236,14 @@ export class TomatoMode extends BaseMode {
   private spawnAlien(): void {
     const margin = 40;
     const kind = Math.floor(Math.random() * ALIEN_STYLES.length);
-    const brutal = this.level >= 4 && Math.random() < 0.18;
-    const big = !brutal && this.level >= 2 && Math.random() < 0.3;
-    const hp = brutal ? 3 : big ? 2 : 1;
-    const r = brutal ? 34 : big ? 30 : 22;
+    const titan = this.level >= 5 && Math.random() < 0.15;
+    const brutal = !titan && this.level >= 2 && Math.random() < 0.22;
+    const big = !titan && !brutal && Math.random() < 0.35;
+    const hp = titan ? 4 : brutal ? 3 : big ? 2 : 1;
+    const r = titan ? 36 : brutal ? 34 : big ? 30 : 21;
     const x = margin + Math.random() * (this.W - margin * 2);
     const vy = ALIEN_BASE_VY + (this.level - 1) * ALIEN_VY_PER_LEVEL + Math.random() * 30;
-    const vx = (Math.random() - 0.5) * 120;
+    const vx = (Math.random() - 0.5) * 130;
     this.aliens.push({
       x,
       y: -r - 10,

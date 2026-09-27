@@ -14,6 +14,7 @@ export interface ModeHud {
   showCombo: boolean;
   levelLabel: string;
   scoreLabel: string;
+  lives?: number;
 }
 
 export interface ModeMeta {

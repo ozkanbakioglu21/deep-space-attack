@@ -152,10 +152,11 @@ export default function App() {
   const startGame = (id: ModeId) => {
     const game = ensureGame(id);
     if (!game) return;
+    const meta = MODES.find((m) => m.id === id) ?? MODES[0];
     game.beginGame();
     setModeId(id);
     setScore(0);
-    setLives(START_LIVES);
+    setLives(meta.hud.lives ?? START_LIVES);
     setLevel(1);
     setCombo(1);
     setPaused(false);
@@ -204,7 +205,7 @@ export default function App() {
               </span>
             )}
             <span className="hud-hearts">
-              {Array.from({ length: START_LIVES }).map((_, i) => (
+              {Array.from({ length: hud.hud.lives ?? START_LIVES }).map((_, i) => (
                 <span key={i} className={i < lives ? "on" : "off"}>
                   {i < lives ? HEART_FULL : HEART_EMPTY}
                 </span>

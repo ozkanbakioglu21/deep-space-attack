@@ -38,7 +38,7 @@ export const MODES: ModeMeta[] = [
     name: "DOMATES",
     tagline: "Uzaylılar iniyor, sen domates atıyorsun: patlat, kaçırma, kombo yap!",
     accent: "#ff5a3c",
-    hud: { showLevel: true, showCombo: true, levelLabel: "Dalga", scoreLabel: "Skor" },
+    hud: { showLevel: true, showCombo: true, levelLabel: "Dalga", scoreLabel: "Skor", lives: 2 },
     controls: [
       "Sürükle veya A/D ile domates toplarını hareket ettir.",
       "Basılı tut (veya Boşluk) → domates at. Başta tek tek; seviye atladıkça hızlanır ve çoklu atış açılır!",
