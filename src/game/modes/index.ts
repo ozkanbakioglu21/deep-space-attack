@@ -3,6 +3,7 @@ import { StormMode } from "./storm";
 import { TomatoMode } from "./tomato";
 import { GunMode } from "./gun";
 import { ShockMode } from "./shock";
+import { MeteorMode } from "./meteor";
 import type { GameAdapter, ModeId, ModeMeta } from "./types";
 import type { GameCallbacks } from "../types";
 
@@ -78,6 +79,20 @@ export const MODES: ModeMeta[] = [
       "Her dalga enerji harcar → kümeleri vur. Yeşil REAKTİFler zincir kurar; kırmızı tanklar 2 vuruş ister.",
     ],
   },
+  {
+    id: "meteor",
+    name: "GÖKTAŞI",
+    tagline: "Göktaşlarını durdur, kazandığın ₺ ile silahını seç ve geliştir!",
+    accent: "#ff9f43",
+    hud: { showLevel: true, showCombo: false, levelLabel: "Dalga", scoreLabel: "Skor", lives: 5 },
+    controls: [
+      "Taret otomatik nişan alıp en acil göktaşına ateş eder; sen silahı yönetirsin.",
+      "Göktaşını vur → ₺ kazan. Alt şeritten silah seç: kilitliyse al, seçiliyse geliştir.",
+      "4 silah: PULSAR, SAÇMA (yelpaze), LEZER (huzme), MISİL (izleyen füze). Her biri 5 seviyeye yükselir.",
+      "NOVA düğmesi: paraya ekranı temizler (acil durum).",
+      "Göktaşı tabana ulaşırsa ♥ gider; 5 kalp biterse oyun biter. Büyük göktaşları patlayınca bölünür!",
+    ],
+  },
 ];
 
 export function createMode(
@@ -94,6 +109,8 @@ export function createMode(
       return new GunMode(canvas, cbs);
     case "shock":
       return new ShockMode(canvas, cbs);
+    case "meteor":
+      return new MeteorMode(canvas, cbs);
     case "flow":
     default:
       return new Game(canvas, cbs);

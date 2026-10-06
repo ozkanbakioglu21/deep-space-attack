@@ -1,4 +1,4 @@
-export type ModeId = "flow" | "storm" | "tomato" | "gun" | "shock";
+export type ModeId = "flow" | "storm" | "tomato" | "gun" | "shock" | "meteor";
 
 export interface GameAdapter {
   launch(): void;

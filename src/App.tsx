@@ -77,7 +77,7 @@ function SoundIcon({ muted }: { muted: boolean }) {
 
 function ModeIcon({ id }: { id: ModeId }) {
   const glyph =
-    id === "flow" ? "➤" : id === "storm" ? "✧" : id === "tomato" ? "🍅" : id === "gun" ? "🔫" : "💥";
+    id === "flow" ? "➤" : id === "storm" ? "✧" : id === "tomato" ? "🍅" : id === "gun" ? "🔫" : id === "shock" ? "💥" : "☄️";
   return <span className="mode-icon" aria-hidden="true">{glyph}</span>;
 }
 
@@ -234,7 +234,7 @@ export default function App() {
             <h1 className="title">DEEP SPACE</h1>
             <h1 className="title alt">ATTACK</h1>
           </div>
-          <p className="tagline">Beş oyun, tek ekran. Birini seç ve başla!</p>
+          <p className="tagline">Altı oyun, tek ekran. Birini seç ve başla!</p>
 
           <div className="mode-grid">
             {MODES.map((m: ModeMeta) => (
